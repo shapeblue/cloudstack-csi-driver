@@ -12,9 +12,9 @@ import (
 	"google.golang.org/grpc"
 	"k8s.io/klog/v2"
 
-	"github.com/leaseweb/cloudstack-csi-driver/pkg/cloud"
-	"github.com/leaseweb/cloudstack-csi-driver/pkg/mount"
-	"github.com/leaseweb/cloudstack-csi-driver/pkg/util"
+	"github.com/shapeblue/cloudstack-csi-driver/pkg/cloud"
+	"github.com/shapeblue/cloudstack-csi-driver/pkg/mount"
+	"github.com/shapeblue/cloudstack-csi-driver/pkg/util"
 )
 
 // Interface is the CloudStack CSI driver interface.

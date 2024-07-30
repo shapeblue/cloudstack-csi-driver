@@ -135,7 +135,7 @@ sidecars:
 controller:
   enabled: true
   image:
-    repository: ghcr.io/leaseweb/cloudstack-csi-driver
+    repository: ghcr.io/shapeblue/cloudstack-csi-driver
     # Overrides the image tag whose default is v{{ .Chart.AppVersion }}
     tag: ""
     pullPolicy: IfNotPresent
@@ -241,7 +241,7 @@ controller:
 node:
   enabled: true
   image:
-    repository: ghcr.io/leaseweb/cloudstack-csi-driver
+    repository: ghcr.io/shapeblue/cloudstack-csi-driver
     # Overrides the image tag whose default is v{{ .Chart.AppVersion }}
     tag: ""
     pullPolicy: IfNotPresent
@@ -323,7 +323,7 @@ syncer:
   enabled: true
   # Job image
   image:
-    repository: "ghcr.io/leaseweb/cloudstack-csi-sc-syncer"
+    repository: "ghcr.io/shapeblue/cloudstack-csi-sc-syncer"
     # Overrides the image tag. Default is {{ .Chart.AppVersion }}
     tag: ""
     imagePullPolicy: IfNotPresent

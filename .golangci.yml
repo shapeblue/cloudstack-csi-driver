@@ -13,9 +13,9 @@ linters-settings:
     sections:
       - standard
       - default
-      - prefix(github.com/leaseweb/cloudstack-csi-driver)
+      - prefix(github.com/shapeblue/cloudstack-csi-driver)
   goimports:
-    local-prefixes: github.com/leaseweb/cloudstack-csi-driver
+    local-prefixes: github.com/shapeblue/cloudstack-csi-driver
 
   misspell:
     locale: US
