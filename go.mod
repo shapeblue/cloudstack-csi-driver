@@ -1,4 +1,4 @@
-module github.com/leaseweb/cloudstack-csi-driver
+module github.com/shapeblue/cloudstack-csi-driver
 
 go 1.21
 

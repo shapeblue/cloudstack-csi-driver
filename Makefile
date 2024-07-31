@@ -1,6 +1,6 @@
 CMDS=cloudstack-csi-driver cloudstack-csi-sc-syncer
 
-PKG=github.com/leaseweb/cloudstack-csi-driver
+PKG=github.com/shapeblue/cloudstack-csi-driver
 # Revision that gets built into each binary via the main.version
 # string. Uses the `git describe` output based on the most recent
 # version tag with a short revision suffix or, if nothing has been

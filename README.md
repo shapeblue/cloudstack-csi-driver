@@ -1,8 +1,8 @@
 # CloudStack CSI Driver
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/leaseweb/cloudstack-csi-driver.svg)](https://pkg.go.dev/github.com/leaseweb/cloudstack-csi-driver)
-[![Go Report Card](https://goreportcard.com/badge/github.com/leaseweb/cloudstack-csi-driver)](https://goreportcard.com/report/github.com/leaseweb/cloudstack-csi-driver)
-[![Release](https://github.com/leaseweb/cloudstack-csi-driver/workflows/Release/badge.svg?branch=master)](https://github.com/leaseweb/cloudstack-csi-driver/actions)
+[![Go Reference](https://pkg.go.dev/badge/github.com/shapeblue/cloudstack-csi-driver.svg)](https://pkg.go.dev/github.com/shapeblue/cloudstack-csi-driver)
+[![Go Report Card](https://goreportcard.com/badge/github.com/shapeblue/cloudstack-csi-driver)](https://goreportcard.com/report/github.com/shapeblue/cloudstack-csi-driver)
+[![Release](https://github.com/shapeblue/cloudstack-csi-driver/workflows/Release/badge.svg?branch=master)](https://github.com/shapeblue/cloudstack-csi-driver/actions)
 
 This repository provides a [Container Storage Interface (CSI)](https://github.com/container-storage-interface/spec)
 plugin for [Apache CloudStack](https://cloudstack.apache.org/).
@@ -56,7 +56,7 @@ you may use the same secret for both tools.
 ### Deployment
 
 ```
-kubectl apply -f https://github.com/leaseweb/cloudstack-csi-driver/releases/latest/download/manifest.yaml
+kubectl apply -f https://github.com/shapeblue/cloudstack-csi-driver/releases/latest/download/manifest.yaml
 ```
 
 ### Creation of Storage classes

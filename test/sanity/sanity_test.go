@@ -5,15 +5,16 @@ package sanity
 import (
 	"context"
 	"io/ioutil"
-	"k8s.io/klog/v2"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"k8s.io/klog/v2"
+
 	"github.com/kubernetes-csi/csi-test/v5/pkg/sanity"
-	"github.com/leaseweb/cloudstack-csi-driver/pkg/cloud/fake"
-	"github.com/leaseweb/cloudstack-csi-driver/pkg/driver"
-	"github.com/leaseweb/cloudstack-csi-driver/pkg/mount"
+	"github.com/shapeblue/cloudstack-csi-driver/pkg/cloud/fake"
+	"github.com/shapeblue/cloudstack-csi-driver/pkg/driver"
+	"github.com/shapeblue/cloudstack-csi-driver/pkg/mount"
 )
 
 func TestSanity(t *testing.T) {
