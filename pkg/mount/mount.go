@@ -114,24 +114,120 @@ func (m *mounter) GetDevicePath(ctx context.Context, volumeID string) (string, e
 }
 
 func (m *mounter) getDevicePathBySerialID(volumeID string) (string, error) {
+	// First try XenServer device paths
+	for i := 'b'; i <= 'z'; i++ {
+		devicePath := fmt.Sprintf("/dev/xvd%c", i)
+		fmt.Printf("Checking XenServer device path: %s\n", devicePath)
+
+		if _, err := os.Stat(devicePath); err == nil {
+			isBlock, err := m.IsBlockDevice(devicePath)
+			if err == nil && isBlock {
+				if m.verifyXenServerDevice(devicePath, volumeID) {
+					fmt.Printf("Found and verified XenServer device: %s\n", devicePath)
+					return devicePath, nil
+				}
+			}
+		}
+	}
+
+	// Fall back to standard device paths
 	sourcePathPrefixes := []string{"virtio-", "scsi-", "scsi-0QEMU_QEMU_HARDDISK_"}
 	serial := diskUUIDToSerial(volumeID)
-	fmt.Println("Searching for device with serial: %s", serial)
+	fmt.Printf("Searching for device with serial: %s\n", serial)
 	for _, prefix := range sourcePathPrefixes {
 		source := filepath.Join(diskIDPath, prefix+serial)
-		fmt.Println("source", source)
-		fmt.Println("Checking path: %s", source)
+		fmt.Printf("Checking path: %s\n", source)
 		_, err := os.Stat(source)
 		if err == nil {
 			return source, nil
 		}
 		if !os.IsNotExist(err) {
-			fmt.Println("Not found: %s", err.Error())
+			fmt.Printf("Not found: %s\n", err.Error())
 			return "", err
 		}
 	}
 
 	return "", nil
+}
+
+func (m *mounter) verifyXenServerDevice(devicePath string, volumeID string) bool {
+	size, err := m.GetBlockSizeBytes(devicePath)
+	if err != nil {
+		fmt.Printf("Failed to get device size: %v\n", err)
+		return false
+	}
+	fmt.Printf("Device size: %d bytes\n", size)
+
+	mounted, err := m.isDeviceMounted(devicePath)
+	if err != nil {
+		fmt.Printf("Failed to check if device is mounted: %v\n", err)
+		return false
+	}
+	if mounted {
+		fmt.Printf("Device is already mounted: %s\n", devicePath)
+		return false
+	}
+
+	inUse, err := m.isDeviceInUse(devicePath)
+	if err != nil {
+		fmt.Printf("Failed to check if device is in use: %v\n", err)
+		return false
+	}
+	if inUse {
+		fmt.Printf("Device is in use: %s\n", devicePath)
+		return false
+	}
+
+	props, err := m.getDeviceProperties(devicePath)
+	if err != nil {
+		fmt.Printf("Failed to get device properties: %v\n", err)
+		return false
+	}
+	fmt.Printf("Device properties: %v\n", props)
+
+	return true
+}
+
+func (m *mounter) isDeviceMounted(devicePath string) (bool, error) {
+	output, err := m.Exec.Command("grep", devicePath, "/proc/mounts").Output()
+	if err != nil {
+		if strings.Contains(err.Error(), "exit status 1") {
+			return false, nil
+		}
+		return false, err
+	}
+	return len(output) > 0, nil
+}
+
+func (m *mounter) isDeviceInUse(devicePath string) (bool, error) {
+	output, err := m.Exec.Command("lsof", devicePath).Output()
+	if err != nil {
+		if strings.Contains(err.Error(), "exit status 1") {
+			return false, nil
+		}
+		return false, err
+	}
+	return len(output) > 0, nil
+}
+
+func (m *mounter) getDeviceProperties(devicePath string) (map[string]string, error) {
+	output, err := m.Exec.Command("udevadm", "info", "--query=property", devicePath).Output()
+	if err != nil {
+		return nil, err
+	}
+
+	props := make(map[string]string)
+	for _, line := range strings.Split(string(output), "\n") {
+		if line == "" {
+			continue
+		}
+		parts := strings.Split(line, "=")
+		if len(parts) == 2 {
+			props[parts[0]] = parts[1]
+		}
+	}
+
+	return props, nil
 }
 
 func (m *mounter) probeVolume(ctx context.Context) {
