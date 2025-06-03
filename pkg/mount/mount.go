@@ -80,15 +80,17 @@ func (m *mounter) GetBlockSizeBytes(devicePath string) (int64, error) {
 
 func (m *mounter) GetDevicePath(ctx context.Context, volumeID string) (string, error) {
 	backoff := wait.Backoff{
-		Duration: 1 * time.Second,
-		Factor:   1.1,
-		Steps:    15,
+		Duration: 2 * time.Second,
+		Factor:   1.5,
+		Steps:    20,
 	}
 
 	var devicePath string
 	err := wait.ExponentialBackoffWithContext(ctx, backoff, func(context.Context) (bool, error) {
 		path, err := m.getDevicePathBySerialID(volumeID)
+		fmt.Println("path", path)
 		if err != nil {
+			fmt.Println("err", err)
 			return false, err
 		}
 		if path != "" {
@@ -96,6 +98,7 @@ func (m *mounter) GetDevicePath(ctx context.Context, volumeID string) (string, e
 
 			return true, nil
 		}
+		fmt.Println("probeVolume")
 		m.probeVolume(ctx)
 
 		return false, nil
@@ -113,15 +116,17 @@ func (m *mounter) GetDevicePath(ctx context.Context, volumeID string) (string, e
 func (m *mounter) getDevicePathBySerialID(volumeID string) (string, error) {
 	sourcePathPrefixes := []string{"virtio-", "scsi-", "scsi-0QEMU_QEMU_HARDDISK_"}
 	serial := diskUUIDToSerial(volumeID)
-	fmt.Println("serial", serial)
+	fmt.Println("Searching for device with serial: %s", serial)
 	for _, prefix := range sourcePathPrefixes {
 		source := filepath.Join(diskIDPath, prefix+serial)
 		fmt.Println("source", source)
+		fmt.Println("Checking path: %s", source)
 		_, err := os.Stat(source)
 		if err == nil {
 			return source, nil
 		}
 		if !os.IsNotExist(err) {
+			fmt.Println("Not found: %s", err.Error())
 			return "", err
 		}
 	}
