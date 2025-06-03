@@ -168,16 +168,6 @@ func (m *mounter) verifyXenServerDevice(devicePath string, volumeID string) bool
 		return false
 	}
 
-	inUse, err := m.isDeviceInUse(devicePath)
-	if err != nil {
-		fmt.Printf("Failed to check if device is in use: %v\n", err)
-		return false
-	}
-	if inUse {
-		fmt.Printf("Device is in use: %s\n", devicePath)
-		return false
-	}
-
 	props, err := m.getDeviceProperties(devicePath)
 	if err != nil {
 		fmt.Printf("Failed to get device properties: %v\n", err)
