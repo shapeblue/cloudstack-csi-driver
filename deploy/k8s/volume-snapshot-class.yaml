@@ -1,0 +1,6 @@
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshotClass
+metadata:
+  name: cloudstack-snapshot
+driver: csi.cloudstack.apache.org
+deletionPolicy: Delete

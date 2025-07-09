@@ -5,11 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"time"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/kubernetes-csi/csi-lib-utils/protosanitizer"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"k8s.io/klog/v2"
 
 	"github.com/shapeblue/cloudstack-csi-driver/pkg/cloud"
@@ -105,6 +107,34 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 			},
 		}
 
+		return resp, nil
+	}
+
+	// Check if this is a volume from snapshot
+	var snapshotID string
+	if src := req.GetVolumeContentSource(); src != nil {
+		if snap := src.GetSnapshot(); snap != nil {
+			snapshotID = snap.GetSnapshotId()
+		}
+	}
+
+	if snapshotID != "" {
+		logger.Info("Creating volume from snapshot", "snapshotID", snapshotID)
+		// Call the cloud connector's CreateVolumeFromSnapshot if implemented
+		volID, err := cs.connector.CreateVolumeFromSnapshot(ctx, diskOfferingID, vol.ZoneID, name, vol.DomainID, vol.ProjectID, snapshotID, vol.Size)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "Cannot create volume from snapshot %s: %v", snapshotID, err.Error())
+		}
+		resp := &csi.CreateVolumeResponse{
+			Volume: &csi.Volume{
+				VolumeId:      volID,
+				CapacityBytes: vol.Size,
+				VolumeContext: req.GetParameters(),
+				AccessibleTopology: []*csi.Topology{
+					Topology{ZoneID: vol.ZoneID}.ToCSI(),
+				},
+			},
+		}
 		return resp, nil
 	}
 
@@ -263,6 +293,44 @@ func (cs *controllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 	}
 
 	return &csi.DeleteVolumeResponse{}, nil
+}
+
+// CreateSnapshot call blockstorage SnapshotVolume.
+func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequest) (*csi.CreateSnapshotResponse, error) {
+	klog.V(4).Infof("CreateSnapshot")
+
+	volumeID := req.GetSourceVolumeId()
+	volume, err := cs.connector.GetVolumeByID(ctx, volumeID)
+	if errors.Is(err, cloud.ErrNotFound) {
+		return nil, status.Errorf(codes.NotFound, "Volume %v not found", volumeID)
+	} else if err != nil {
+		// Error with CloudStack
+		return nil, status.Errorf(codes.Internal, "Error %v", err)
+	}
+	snapshot, err := cs.connector.CreateSnapshot(ctx, volume.ID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to create snapshot %s: %v", snapshot.ID, err.Error())
+	}
+
+	t, err := time.Parse(time.RFC3339, snapshot.CreatedAt)
+	if err != nil {
+		panic(err)
+	}
+
+	// Convert to Timestamp protobuf
+	ts := timestamppb.New(t)
+
+	resp := &csi.CreateSnapshotResponse{
+		Snapshot: &csi.Snapshot{
+			SnapshotId:     snapshot.ID,
+			SourceVolumeId: volume.ID,
+			CreationTime:   ts,
+			ReadyToUse:     true,
+			// We leave the optional SizeBytes field unset as the size of a block storage snapshot is the size of the difference to the volume or previous snapshots, k8s however expects the size to be the size of the restored volume.
+		},
+	}
+	return resp, nil
+
 }
 
 func (cs *controllerServer) ControllerPublishVolume(ctx context.Context, req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
@@ -554,6 +622,20 @@ func (cs *controllerServer) ControllerGetCapabilities(ctx context.Context, req *
 				Type: &csi.ControllerServiceCapability_Rpc{
 					Rpc: &csi.ControllerServiceCapability_RPC{
 						Type: csi.ControllerServiceCapability_RPC_EXPAND_VOLUME,
+					},
+				},
+			},
+			&csi.ControllerServiceCapability{
+				Type: &csi.ControllerServiceCapability_Rpc{
+					Rpc: &csi.ControllerServiceCapability_RPC{
+						Type: csi.ControllerServiceCapability_RPC_CREATE_DELETE_SNAPSHOT,
+					},
+				},
+			},
+			&csi.ControllerServiceCapability{
+				Type: &csi.ControllerServiceCapability_Rpc{
+					Rpc: &csi.ControllerServiceCapability_RPC{
+						Type: csi.ControllerServiceCapability_RPC_LIST_SNAPSHOTS,
 					},
 				},
 			},

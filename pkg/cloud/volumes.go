@@ -29,6 +29,8 @@ func (c *client) listVolumes(p *cloudstack.ListVolumesParams) (*Volume, error) {
 		Name:             vol.Name,
 		Size:             vol.Size,
 		DiskOfferingID:   vol.Diskofferingid,
+		DomainID:         vol.Domainid,
+		ProjectID:        vol.Projectid,
 		ZoneID:           vol.Zoneid,
 		VirtualMachineID: vol.Virtualmachineid,
 		DeviceID:         strconv.FormatInt(vol.Deviceid, 10),
@@ -152,4 +154,35 @@ func (c *client) ExpandVolume(ctx context.Context, volumeID string, newSizeInGB 
 	}
 
 	return nil
+}
+
+func (c *client) CreateVolumeFromSnapshot(ctx context.Context, diskOfferingID, zoneID, name, domainID, projectID, snapshotID string, sizeInGB int64) (string, error) {
+	logger := klog.FromContext(ctx)
+	snapshot, _, err := c.Snapshot.GetSnapshotByID(snapshotID)
+	if err != nil {
+		return "", fmt.Errorf("failed to retrieve snapshot '%s': %w", snapshotID, err)
+	}
+
+	p := c.Volume.NewCreateVolumeParams()
+	p.SetDiskofferingid(diskOfferingID)
+	p.SetZoneid(zoneID)
+	if projectID != "" {
+		p.SetProjectid(projectID)
+	}
+	p.SetName(name)
+	p.SetSnapshotid(snapshot.Id)
+
+	logger.V(2).Info("CloudStack API call", "command", "CreateVolume", "params", map[string]string{
+		"name":       name,
+		"snapshotid": snapshotID,
+		"projectid":  projectID,
+	})
+	// Execute the API call to create volume from snapshot
+	vol, err := c.Volume.CreateVolume(p)
+	if err != nil {
+		// Handle the error accordingly
+		return "", fmt.Errorf("failed to create volume from snapshot'%s': %w", snapshotID, err)
+	}
+
+	return vol.Id, err
 }
