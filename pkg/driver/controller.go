@@ -295,7 +295,6 @@ func (cs *controllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 	return &csi.DeleteVolumeResponse{}, nil
 }
 
-// CreateSnapshot call blockstorage SnapshotVolume.
 func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequest) (*csi.CreateSnapshotResponse, error) {
 	klog.V(4).Infof("CreateSnapshot")
 
@@ -312,7 +311,7 @@ func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 		return nil, status.Errorf(codes.Internal, "Failed to create snapshot %s: %v", snapshot.ID, err.Error())
 	}
 
-	t, err := time.Parse(time.RFC3339, snapshot.CreatedAt)
+	t, err := time.Parse("2006-01-02T15:04:05-0700", snapshot.CreatedAt)
 	if err != nil {
 		panic(err)
 	}
@@ -331,6 +330,31 @@ func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 	}
 	return resp, nil
 
+}
+
+func (cs *controllerServer) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequest) (*csi.DeleteSnapshotResponse, error) {
+	klog.V(4).Infof("DeleteSnapshot")
+
+	snapshotID := req.GetSnapshotId()
+
+	if snapshotID == "" {
+		return nil, status.Error(codes.InvalidArgument, "Snapshot ID missing in request")
+	}
+
+	snapshot, err := cs.connector.GetSnapshotByID(ctx, snapshotID)
+	if errors.Is(err, cloud.ErrNotFound) {
+		return nil, status.Errorf(codes.NotFound, "Snapshot %v not found", snapshotID)
+	} else if err != nil {
+		// Error with CloudStack
+		return nil, status.Errorf(codes.Internal, "Error %v", err)
+	}
+
+	err = cs.connector.DeleteSnapshot(ctx, snapshot.ID)
+	if err != nil && !errors.Is(err, cloud.ErrNotFound) {
+		return nil, status.Errorf(codes.Internal, "Cannot delete snapshot %s: %s", snapshotID, err.Error())
+	}
+
+	return &csi.DeleteSnapshotResponse{}, nil
 }
 
 func (cs *controllerServer) ControllerPublishVolume(ctx context.Context, req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {

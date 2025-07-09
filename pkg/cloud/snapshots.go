@@ -4,12 +4,15 @@ import (
 	"context"
 	"strings"
 
-	"github.com/apache/cloudstack-go/v2/cloudstack"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-func (c *client) ListSnapshots(p *cloudstack.ListSnapshotsParams) (*Snapshot, error) {
+func (c *client) GetSnapshotByID(ctx context.Context, snapshotID ...string) (*Snapshot, error) {
+	p := c.Snapshot.NewListSnapshotsParams()
+	if snapshotID != nil {
+		p.SetId(snapshotID[0])
+	}
 	l, err := c.Snapshot.ListSnapshots(p)
 	if err != nil {
 		return nil, err

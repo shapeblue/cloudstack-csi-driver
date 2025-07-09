@@ -1,3 +1,7 @@
+**Fork Notice:** 
+
+This repo is a fork of the Leaseweb's maitained cloudstack-csi-driver, which is in-turn a fork of Apalia's cloudstack-csi-driver
+
 # CloudStack CSI Driver
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/shapeblue/cloudstack-csi-driver.svg)](https://pkg.go.dev/github.com/shapeblue/cloudstack-csi-driver)
@@ -82,6 +86,17 @@ The tool `cloudstack-csi-sc-syncer` may also be used to synchronize CloudStack
 disk offerings to Kubernetes storage classes.
 
 [More info...](./cmd/cloudstack-csi-sc-syncer/README.md)
+
+> **Note:** The VolumeSnapshot CRDs (CustomResourceDefinitions) of version 8.3.0 are installed in this deployment. If you use a different version, please ensure compatibility with your Kubernetes cluster and CSI sidecars.
+
+// TODO: Ask Wei / Rohit - should we have the crds locally or manually install it from:
+
+```
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/v8.3.0/client/config/crd/snapshot.storage.k8s.io_volumesnapshotclasses.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/v8.3.0/client/config/crd/snapshot.storage.k8s.io_volumesnapshots.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/v8.3.0/client/config/crd/snapshot.storage.k8s.io_volumesnapshotcontents.yaml
+
+```
 
 ### Usage
 
