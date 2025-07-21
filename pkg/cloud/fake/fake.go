@@ -137,8 +137,8 @@ func (f *fakeConnector) ExpandVolume(_ context.Context, volumeID string, newSize
 	return cloud.ErrNotFound
 }
 
-func (f *fakeConnector) CreateVolumeFromSnapshot(ctx context.Context, diskOfferingID, zoneID, name, domainID, projectID, snapshotID string, sizeInGB int64) (string, error) {
-	return "1", nil
+func (f *fakeConnector) CreateVolumeFromSnapshot(ctx context.Context, zoneID, name, domainID, projectID, snapshotID string, sizeInGB int64) (*cloud.Volume, error) {
+	return nil, nil
 }
 
 func (f *fakeConnector) GetSnapshotByID(ctx context.Context, snapshotID ...string) (*cloud.Snapshot, error) {

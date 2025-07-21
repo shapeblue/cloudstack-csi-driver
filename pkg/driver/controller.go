@@ -2,6 +2,7 @@ package driver
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -118,32 +119,48 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 		}
 	}
 
-	if snapshotID != "" {
-		logger.Info("Creating volume from snapshot", "snapshotID", snapshotID)
-		// Call the cloud connector's CreateVolumeFromSnapshot if implemented
-		volID, err := cs.connector.CreateVolumeFromSnapshot(ctx, diskOfferingID, vol.ZoneID, name, vol.DomainID, vol.ProjectID, snapshotID, vol.Size)
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, "Cannot create volume from snapshot %s: %v", snapshotID, err.Error())
-		}
-		resp := &csi.CreateVolumeResponse{
-			Volume: &csi.Volume{
-				VolumeId:      volID,
-				CapacityBytes: vol.Size,
-				VolumeContext: req.GetParameters(),
-				AccessibleTopology: []*csi.Topology{
-					Topology{ZoneID: vol.ZoneID}.ToCSI(),
-				},
-			},
-		}
-		return resp, nil
-	}
-
 	// We have to create the volume.
 
 	// Determine volume size using requested capacity range.
 	sizeInGB, err := determineSize(req)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	if snapshotID != "" {
+		logger.Info("Creating volume from snapshot", "snapshotID", snapshotID)
+		// Call the cloud connector's CreateVolumeFromSnapshot if implemented
+		printVolumeAsJSON(req)
+		snapshot, err := cs.connector.GetSnapshotByID(ctx, snapshotID)
+		if errors.Is(err, cloud.ErrNotFound) {
+			return nil, status.Errorf(codes.NotFound, "Snapshot %v not found", snapshotID)
+		} else if err != nil {
+			// Error with CloudStack
+			return nil, status.Errorf(codes.Internal, "Error %v", err)
+		}
+		logger.Info("Disk offering ID", "diskOfferingID: ", diskOfferingID)
+		logger.Info("Zone ID", "ZoneID", snapshot.ZoneID)
+		logger.Info("Name", "name", name)
+		logger.Info("Domain ID", "DomainID", snapshot.DomainID)
+		logger.Info("Project ID", "ProjectID", snapshot.ProjectID)
+		logger.Info("Snapshot ID", "snapshotID", snapshotID)
+		logger.Info("Volume size", "Size", sizeInGB)
+		volFromSnapshot, err := cs.connector.CreateVolumeFromSnapshot(ctx, snapshot.ZoneID, name, snapshot.DomainID, snapshot.ProjectID, snapshotID, sizeInGB)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "Cannot create volume from snapshot %s: %v", snapshotID, err.Error())
+		}
+		resp := &csi.CreateVolumeResponse{
+			Volume: &csi.Volume{
+				VolumeId:      volFromSnapshot.ID,
+				CapacityBytes: volFromSnapshot.Size,
+				VolumeContext: req.GetParameters(),
+				ContentSource: req.GetVolumeContentSource(),
+				AccessibleTopology: []*csi.Topology{
+					Topology{ZoneID: volFromSnapshot.ZoneID}.ToCSI(),
+				},
+			},
+		}
+		return resp, nil
 	}
 
 	// Determine zone using topology constraints.
@@ -189,7 +206,7 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 			VolumeId:      volID,
 			CapacityBytes: util.GigaBytesToBytes(sizeInGB),
 			VolumeContext: req.GetParameters(),
-			// ContentSource: req.GetVolumeContentSource(), TODO: snapshot support.
+			ContentSource: req.GetVolumeContentSource(),
 			AccessibleTopology: []*csi.Topology{
 				Topology{ZoneID: zoneID}.ToCSI(),
 			},
@@ -197,6 +214,11 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 	}
 
 	return resp, nil
+}
+
+func printVolumeAsJSON(vol *csi.CreateVolumeRequest) {
+	b, _ := json.MarshalIndent(vol, "", "  ")
+	fmt.Println(string(b))
 }
 
 func checkVolumeSuitable(vol *cloud.Volume,
