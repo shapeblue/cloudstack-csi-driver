@@ -127,6 +127,8 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
+	// If creating from snapshot, get the snapshot size
+	var snapshotSizeGiB int64
 	if snapshotID != "" {
 		logger.Info("Creating volume from snapshot", "snapshotID", snapshotID)
 		// Call the cloud connector's CreateVolumeFromSnapshot if implemented
@@ -138,17 +140,19 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 			// Error with CloudStack
 			return nil, status.Errorf(codes.Internal, "Error %v", err)
 		}
-		logger.Info("Disk offering ID", "diskOfferingID: ", diskOfferingID)
-		logger.Info("Zone ID", "ZoneID", snapshot.ZoneID)
-		logger.Info("Name", "name", name)
-		logger.Info("Domain ID", "DomainID", snapshot.DomainID)
-		logger.Info("Project ID", "ProjectID", snapshot.ProjectID)
-		logger.Info("Snapshot ID", "snapshotID", snapshotID)
-		logger.Info("Volume size", "Size", sizeInGB)
+
+		logger.Info("PVC created with", "size", sizeInGB)
+		snapshotSizeGiB = util.RoundUpBytesToGB(snapshot.Size)
+		if snapshotSizeGiB > sizeInGB {
+			logger.Info("Snapshot size is greater than the request PVC, creating volume from snapshot of size", "snapshot size:", snapshotSizeGiB)
+			sizeInGB = snapshotSizeGiB
+		}
+
 		volFromSnapshot, err := cs.connector.CreateVolumeFromSnapshot(ctx, snapshot.ZoneID, name, snapshot.DomainID, snapshot.ProjectID, snapshotID, sizeInGB)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "Cannot create volume from snapshot %s: %v", snapshotID, err.Error())
 		}
+
 		resp := &csi.CreateVolumeResponse{
 			Volume: &csi.Volume{
 				VolumeId:      volFromSnapshot.ID,

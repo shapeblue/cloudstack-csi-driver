@@ -46,6 +46,7 @@ func (c *client) CreateSnapshot(ctx context.Context, volumeID string) (*Snapshot
 	snap := Snapshot{
 		ID:        snapshot.Id,
 		Name:      snapshot.Name,
+		Size:      snapshot.Virtualsize,
 		DomainID:  snapshot.Domainid,
 		ProjectID: snapshot.Projectid,
 		ZoneID:    snapshot.Zoneid,

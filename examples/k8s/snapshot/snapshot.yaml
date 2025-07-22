@@ -5,4 +5,4 @@ metadata:
 spec:
   volumeSnapshotClassName: cloudstack-snapshot
   source:
-    persistentVolumeClaimName: my-pvc
+    persistentVolumeClaimName: example-pvc

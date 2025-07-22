@@ -50,6 +50,7 @@ type Volume struct {
 type Snapshot struct {
 	ID   string
 	Name string
+	Size int64
 
 	DomainID  string
 	ProjectID string

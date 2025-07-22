@@ -169,12 +169,15 @@ func (c *client) CreateVolumeFromSnapshot(ctx context.Context, zoneID, name, dom
 		p.SetProjectid(projectID)
 	}
 	p.SetName(name)
+	p.SetSize(sizeInGB)
 	p.SetSnapshotid(snapshot.Id)
 
 	logger.V(2).Info("CloudStack API call", "command", "CreateVolume", "params", map[string]string{
 		"name":       name,
+		"size":       strconv.FormatInt(sizeInGB, 10),
 		"snapshotid": snapshotID,
 		"projectid":  projectID,
+		"zoneid":     zoneID,
 	})
 	// Execute the API call to create volume from snapshot
 	vol, err := c.Volume.CreateVolume(p)
