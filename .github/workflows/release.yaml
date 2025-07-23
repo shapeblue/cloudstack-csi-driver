@@ -83,6 +83,8 @@ jobs:
         run: |
           VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,' | sed -e 's/^v//')
           echo "---" >> manifest.yaml
+          cat deploy/k8s/00-snapshot-crds.yaml >> manifest.yaml
+          echo "---" >> manifest.yaml
           cat deploy/k8s/rbac.yaml >> manifest.yaml
           echo "---" >> manifest.yaml
           cat deploy/k8s/csidriver.yaml >> manifest.yaml
@@ -90,6 +92,8 @@ jobs:
           sed -E "s|image: +cloudstack-csi-driver|image: ${REGISTRY_NAME}/cloudstack-csi-driver:${VERSION}|" deploy/k8s/controller-deployment.yaml >> manifest.yaml
           echo "---" >> manifest.yaml
           sed -E "s|image: +cloudstack-csi-driver|image: ${REGISTRY_NAME}/cloudstack-csi-driver:${VERSION}|" deploy/k8s/node-daemonset.yaml >> manifest.yaml
+          echo "---" >> manifest.yaml
+          cat deploy/k8s/volume-snapshot-class.yaml >> manifest.yaml
 
       - name: Create Release
         id: create_release
