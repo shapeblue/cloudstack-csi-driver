@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: snapshot-pvc-1
+  name: pvc-from-snapshot
 spec:
   accessModes:
     - ReadWriteOnce

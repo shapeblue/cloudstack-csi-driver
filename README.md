@@ -89,7 +89,7 @@ disk offerings to Kubernetes storage classes.
 
 > **Note:** The VolumeSnapshot CRDs (CustomResourceDefinitions) of version 8.3.0 are installed in this deployment. If you use a different version, please ensure compatibility with your Kubernetes cluster and CSI sidecars.
 
-// TODO: Ask Wei / Rohit - should we have the crds locally or manually install it from:
+// TODO: Should we have the crds locally or manually install it from:
 
 ```
 kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/v8.3.0/client/config/crd/snapshot.storage.k8s.io_volumesnapshotclasses.yaml
@@ -119,6 +119,67 @@ To build the container images:
 
 ```
 make container
+```
+
+
+## Volume Snapshots
+For Volume snapshots to be created, the following configurations need to be applied:
+
+```
+kubectl aplly -f 00-snapshot-crds.yaml     # Installs the VolumeSnapshotClass, VolumeSnapshotContent and VolumeSnapshtot CRDs
+volume-snapshot-class.yaml                 # Defines VolumeSnapshotClass for CloudStack CSI driver
+```
+
+Once the CRDs are installed, the snapshot can be taken by applying:
+```
+kubectl apply ./examples/k8s/snapshot/snapshot.yaml
+```
+
+In order to take the snapshot of a volume, `persistentVolumeClaimName` should be set to the right PVC name that is bound to the volume whose snapshot is to be taken.
+
+You can check CloudStack volume snapshots if the snapshot was successfully created. If for any reason there was an issue, it can be investgated by checking the logs of the cloudstack-csi-controller pods: cloudstack-csi-controller, csi-snapshotter and snapshot-controller containers
+
+```
+kubectl logs -f <cloudstack-csi-controller pod_name> -n kube-system # defaults to tailing logs of cloudstack-csi-controller
+kubectl logs -f <cloudstack-csi-controller pod_name> -n kube-system -c csi-snapshotter
+kubectl logs -f <cloudstack-csi-controller pod_name> -n kube-system -c snapshot-controller
+```
+
+To restore a volume snapshot:
+1. Restore a snapshot and Use it in a pod
+* Create a PVC from the snapshot - for example ./examples/k8s/snapshot/pvc-from-snapshot.yaml
+* Apply the configuration:
+```
+kubectl apply -f ./examples/k8s/snapshot/pvc-from-snapshot.yaml
+```
+* Create a pod that uses the restored PVC; example pod config ./examples/k8s/snapshot/restore-pod.yaml
+```
+kubectl apply -f ./examples/k8s/snapshot/restore-pod.yaml
+```
+2. To restore a snapshot when using a deployment
+Update the deployment to point to the restored PVC
+
+```
+spec:
+  volumes:
+    - name: app-volume
+      persistentVolumeClaim:
+        claimName: pvc-from-snapshot
+```
+
+### What happens when you restore a volume from a snapshot
+* The CSI external-provisioner (a container in the cloudstack-csi-controller pod) sees the new PVC and notices it references a snapshot
+* The CSI driver's `CreateVolume` method is called with a `VolumeContentSource` that contains the snapshot ID
+* The CSI driver creates a new volume from the snapshot (using the CloudStack's createVolume API)
+* The new volume is now available as a PV (persistent volume) and is bound to the new PVC
+* The volume is NOT attached to any node just by restoring from a snapshot, the volume is only attached to a node when a Pod that uses the new PVC is scheduled on a node
+* The CSI driver's `ControllerPublishVolume` and `NodePublishVolume` methods are called to attach and mount the volume to the node where the Pod is running
+
+Hence to debug any issues during restoring a snapshot, check the logs of the cloudstack-csi-controller, external-provisioner containers 
+
+```
+kubectl logs -f <cloudstack-csi-controller pod_name> -n kube-system # defaults to tailing logs of cloudstack-csi-controller
+kubectl logs -f <cloudstack-csi-controller pod_name> -n kube-system -c external-provisioner
 ```
 
 ## See also

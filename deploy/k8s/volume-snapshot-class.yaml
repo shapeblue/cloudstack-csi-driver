@@ -3,4 +3,4 @@ kind: VolumeSnapshotClass
 metadata:
   name: cloudstack-snapshot
 driver: csi.cloudstack.apache.org
-deletionPolicy: Delete
+deletionPolicy: Delete            # Deleting the snapshot object in Kubernetes with delete the snapshot in CloudStack; You can use policy Retain if the snapshot shouldn't be deleted from CloudStack
