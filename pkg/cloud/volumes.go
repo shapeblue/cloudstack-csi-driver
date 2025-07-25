@@ -166,10 +166,6 @@ func (c *client) ExpandVolume(ctx context.Context, volumeID string, newSizeInGB 
 
 func (c *client) CreateVolumeFromSnapshot(ctx context.Context, zoneID, name, domainID, projectID, snapshotID string, sizeInGB int64) (*Volume, error) {
 	logger := klog.FromContext(ctx)
-	snapshot, _, err := c.Snapshot.GetSnapshotByID(snapshotID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve snapshot '%s': %w", snapshotID, err)
-	}
 
 	p := c.Volume.NewCreateVolumeParams()
 	p.SetZoneid(zoneID)
@@ -178,7 +174,7 @@ func (c *client) CreateVolumeFromSnapshot(ctx context.Context, zoneID, name, dom
 	}
 	p.SetName(name)
 	p.SetSize(sizeInGB)
-	p.SetSnapshotid(snapshot.Id)
+	p.SetSnapshotid(snapshotID)
 
 	logger.V(2).Info("CloudStack API call", "command", "CreateVolume", "params", map[string]string{
 		"name":       name,
