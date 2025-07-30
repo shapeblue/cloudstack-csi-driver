@@ -83,8 +83,6 @@ jobs:
         run: |
           VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,' | sed -e 's/^v//')
           echo "---" >> manifest.yaml
-          cat deploy/k8s/00-snapshot-crds.yaml >> manifest.yaml
-          echo "---" >> manifest.yaml
           cat deploy/k8s/rbac.yaml >> manifest.yaml
           echo "---" >> manifest.yaml
           cat deploy/k8s/csidriver.yaml >> manifest.yaml
@@ -105,6 +103,16 @@ jobs:
           release_name: ${{ github.ref }}
           draft: false
           prerelease: false
+
+      - name: Upload Snapshot CRDs Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: deploy/k8s/00-snapshot-crds.yaml
+          asset_name: snapshot-crds.yaml
+          asset_content_type: application/x-yaml
 
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
