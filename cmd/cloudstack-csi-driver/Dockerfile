@@ -15,7 +15,7 @@ RUN apk add --no-cache \
     blkid \
     mount \
     umount \
-    # Provides udevadm for device path detection
+    # Provides udevadm for device path detection \
     udev 
 
 COPY ./bin/cloudstack-csi-driver /cloudstack-csi-driver
