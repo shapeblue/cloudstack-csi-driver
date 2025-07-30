@@ -286,7 +286,7 @@ func determineSize(req *csi.CreateVolumeRequest) (int64, error) {
 
 func (cs *controllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
 	logger := klog.FromContext(ctx)
-	logger.V(6).Info("DeleteVolume: called", "args", *req)
+	logger.Info("DeleteVolume: called", "args", *req)
 
 	if req.GetVolumeId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
