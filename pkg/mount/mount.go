@@ -114,7 +114,7 @@ func (m *mounter) getDevicePathBySerialID(volumeID string) (string, error) {
 	// First try XenServer device paths
 	xenDevicePath, err := m.getDevicePathForXenServer(volumeID)
 	if err != nil {
-		fmt.Printf("Failed to get VMware device path: %v\n", err)
+		fmt.Printf("Failed to get XenServer device path: %v\n", err)
 	}
 	if xenDevicePath != "" {
 		return xenDevicePath, nil
