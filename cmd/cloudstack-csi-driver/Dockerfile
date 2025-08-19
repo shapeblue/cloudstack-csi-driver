@@ -16,7 +16,7 @@ RUN apk add --no-cache \
     mount \
     umount \
     # Provides udevadm for device path detection \
-    udev 
+    udev
 
 COPY ./bin/cloudstack-csi-driver /cloudstack-csi-driver
 ENTRYPOINT ["/cloudstack-csi-driver"]

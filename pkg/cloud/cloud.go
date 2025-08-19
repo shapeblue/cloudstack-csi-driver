@@ -23,6 +23,11 @@ type Interface interface {
 	AttachVolume(ctx context.Context, volumeID, vmID string) (string, error)
 	DetachVolume(ctx context.Context, volumeID string) error
 	ExpandVolume(ctx context.Context, volumeID string, newSizeInGB int64) error
+
+	CreateVolumeFromSnapshot(ctx context.Context, zoneID, name, domainID, projectID, snapshotID string, sizeInGB int64) (*Volume, error)
+	GetSnapshotByID(ctx context.Context, snapshotID ...string) (*Snapshot, error)
+	CreateSnapshot(ctx context.Context, volumeID string) (*Snapshot, error)
+	DeleteSnapshot(ctx context.Context, snapshotID string) error
 }
 
 // Volume represents a CloudStack volume.
@@ -34,10 +39,25 @@ type Volume struct {
 	Size int64
 
 	DiskOfferingID string
+	DomainID       string
+	ProjectID      string
 	ZoneID         string
 
 	VirtualMachineID string
 	DeviceID         string
+}
+
+type Snapshot struct {
+	ID   string
+	Name string
+	Size int64
+
+	DomainID  string
+	ProjectID string
+	ZoneID    string
+
+	VolumeID  string
+	CreatedAt string
 }
 
 // VM represents a CloudStack Virtual Machine.
