@@ -41,8 +41,12 @@ func (c *client) GetVolumeByID(ctx context.Context, volumeID string) (*Volume, e
 	logger := klog.FromContext(ctx)
 	p := c.Volume.NewListVolumesParams()
 	p.SetId(volumeID)
+	if c.projectID != "" {
+		p.SetProjectid(c.projectID)
+	}
 	logger.V(2).Info("CloudStack API call", "command", "ListVolumes", "params", map[string]string{
-		"id": volumeID,
+		"id":        volumeID,
+		"projectid": c.projectID,
 	})
 
 	return c.listVolumes(p)
@@ -66,11 +70,15 @@ func (c *client) CreateVolume(ctx context.Context, diskOfferingID, zoneID, name 
 	p.SetZoneid(zoneID)
 	p.SetName(name)
 	p.SetSize(sizeInGB)
+	if c.projectID != "" {
+		p.SetProjectid(c.projectID)
+	}
 	logger.V(2).Info("CloudStack API call", "command", "CreateVolume", "params", map[string]string{
 		"diskofferingid": diskOfferingID,
 		"zoneid":         zoneID,
 		"name":           name,
 		"size":           strconv.FormatInt(sizeInGB, 10),
+		"projectid":      c.projectID,
 	})
 	vol, err := c.Volume.CreateVolume(p)
 	if err != nil {
