@@ -123,6 +123,9 @@ make container
 
 
 ## Volume Snapshots
+
+**NOTE:** To create volume snapshots in KVM, make sure to set the `kvm.snapshot.enabled` global setting to true and restart the Management Server
+
 For Volume snapshots to be created, the following configurations need to be applied:
 
 ```
@@ -165,6 +168,14 @@ spec:
     - name: app-volume
       persistentVolumeClaim:
         claimName: pvc-from-snapshot
+```
+
+
+To delete a volume snapshot
+One can simlpy delete the volume snapshot created in kubernetes using
+
+```
+kubectl delete volumesnapshot snapshot-1       # here, snapshot-1 is the name of the snapshot created
 ```
 
 ### What happens when you restore a volume from a snapshot
