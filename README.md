@@ -178,6 +178,31 @@ One can simlpy delete the volume snapshot created in kubernetes using
 kubectl delete volumesnapshot snapshot-1       # here, snapshot-1 is the name of the snapshot created
 ```
 
+If for whatever reason, snapshot deletion gets stuck, one can troubleshoot the issue doing the following:
+
+* Inspect the snapshot
+
+```
+kubectl get volumesnapshot <snapshot-name> [-n <namespace>] -o yaml
+```
+
+Look for the following section:
+```
+metadata:
+  finalizers:
+    - snapshot.storage.kubernetes.io/volumesnapshot-as-source
+```
+
+If finalizers are present, Kubernetes will not delete the resource until they are removed or resolved.
+
+* Patch to Remove Finalizers
+
+```
+kubectl patch volumesnapshot <snapshot-name> [-n <namespace>] --type=merge -p '{"metadata":{"finalizers":[]}}'
+```
+
+**NOTE:** This bypasses cleanup logic. Use only if you're certain the snapshot is no longer needed at the CSI/backend level
+
 ### What happens when you restore a volume from a snapshot
 * The CSI external-provisioner (a container in the cloudstack-csi-controller pod) sees the new PVC and notices it references a snapshot
 * The CSI driver's `CreateVolume` method is called with a `VolumeContentSource` that contains the snapshot ID
