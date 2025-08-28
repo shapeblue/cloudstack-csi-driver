@@ -89,7 +89,6 @@ disk offerings to Kubernetes storage classes.
 
 > **Note:** The VolumeSnapshot CRDs (CustomResourceDefinitions) of version 8.3.0 are installed in this deployment. If you use a different version, please ensure compatibility with your Kubernetes cluster and CSI sidecars.
 
-// TODO: Should we have the crds locally or manually install it from:
 
 ```
 kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/v8.3.0/client/config/crd/snapshot.storage.k8s.io_volumesnapshotclasses.yaml
@@ -126,11 +125,12 @@ make container
 
 **NOTE:** To create volume snapshots in KVM, make sure to set the `kvm.snapshot.enabled` global setting to true and restart the Management Server
 
+### Volume snapshot creation
 For Volume snapshots to be created, the following configurations need to be applied:
 
 ```
-kubectl aplly -f 00-snapshot-crds.yaml     # Installs the VolumeSnapshotClass, VolumeSnapshotContent and VolumeSnapshtot CRDs
-volume-snapshot-class.yaml                 # Defines VolumeSnapshotClass for CloudStack CSI driver
+kubectl apply -f deploy/k8s/00-snapshot-crds.yaml        # Installs the VolumeSnapshotClass, VolumeSnapshotContent and VolumeSnapshtot CRDs
+kubectl apply -f deploy/k8s/volume-snapshot-class.yaml   # Defines VolumeSnapshotClass for CloudStack CSI driver
 ```
 
 Once the CRDs are installed, the snapshot can be taken by applying:
@@ -147,6 +147,8 @@ kubectl logs -f <cloudstack-csi-controller pod_name> -n kube-system # defaults t
 kubectl logs -f <cloudstack-csi-controller pod_name> -n kube-system -c csi-snapshotter
 kubectl logs -f <cloudstack-csi-controller pod_name> -n kube-system -c snapshot-controller
 ```
+
+### Restoring a Volume snapshot
 
 To restore a volume snapshot:
 1. Restore a snapshot and Use it in a pod
@@ -171,6 +173,8 @@ spec:
 ```
 
 
+### Deletion of a volume snapshot
+
 To delete a volume snapshot
 One can simlpy delete the volume snapshot created in kubernetes using
 
@@ -178,6 +182,7 @@ One can simlpy delete the volume snapshot created in kubernetes using
 kubectl delete volumesnapshot snapshot-1       # here, snapshot-1 is the name of the snapshot created
 ```
 
+#### Troubleshooting issues with volume snapshot deletion
 If for whatever reason, snapshot deletion gets stuck, one can troubleshoot the issue doing the following:
 
 * Inspect the snapshot
@@ -201,7 +206,7 @@ If finalizers are present, Kubernetes will not delete the resource until they ar
 kubectl patch volumesnapshot <snapshot-name> [-n <namespace>] --type=merge -p '{"metadata":{"finalizers":[]}}'
 ```
 
-**NOTE:** This bypasses cleanup logic. Use only if you're certain the snapshot is no longer needed at the CSI/backend level
+**Caution:** This bypasses cleanup logic. Use only if you're certain the snapshot is no longer needed at the CSI/backend level
 
 ### What happens when you restore a volume from a snapshot
 * The CSI external-provisioner (a container in the cloudstack-csi-controller pod) sees the new PVC and notices it references a snapshot
