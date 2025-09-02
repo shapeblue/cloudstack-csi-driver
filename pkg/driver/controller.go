@@ -360,13 +360,13 @@ func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 }
 
 func (cs *controllerServer) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequest) (*csi.DeleteSnapshotResponse, error) {
-	klog.V(4).Infof("DeleteSnapshot")
-
 	snapshotID := req.GetSnapshotId()
 
 	if snapshotID == "" {
 		return nil, status.Error(codes.InvalidArgument, "Snapshot ID missing in request")
 	}
+
+	klog.V(4).Infof("DeleteSnapshot for snapshotID: %s", snapshotID)
 
 	snapshot, err := cs.connector.GetSnapshotByID(ctx, snapshotID)
 	if errors.Is(err, cloud.ErrNotFound) {
