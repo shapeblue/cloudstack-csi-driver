@@ -80,6 +80,11 @@ The storage class must also have a parameter named
 `csi.cloudstack.apache.org/disk-offering-id` whose value is the CloudStack disk
 offering ID.
 
+**Reclaim Policy**: Storage classes can have a `reclaimPolicy` of either `Delete` or `Retain`. If no `reclaimPolicy` is specified, it defaults to `Delete`. 
+
+- `Delete`: When a PVC is deleted or a CKS cluster (Managed Kubernetes Cluster in CloudStack) is deleted, the associated persistent volumes and their underlying CloudStack disk volumes will be automatically removed.
+- `Retain`: Persistent volumes and their underlying CloudStack disk volumes will be preserved even after PVC deletion or cluster deletion, allowing for manual recovery or data preservation.
+
 #### Using cloudstack-csi-sc-syncer
 
 The tool `cloudstack-csi-sc-syncer` may also be used to synchronize CloudStack
@@ -222,6 +227,12 @@ Hence to debug any issues during restoring a snapshot, check the logs of the clo
 kubectl logs -f <cloudstack-csi-controller pod_name> -n kube-system # defaults to tailing logs of cloudstack-csi-controller
 kubectl logs -f <cloudstack-csi-controller pod_name> -n kube-system -c external-provisioner
 ```
+
+## Additional General Notes:
+
+**Node Scheduling Best Practices**: When deploying applications that require specific node placement, use `nodeSelector` or `nodeAffinity` instead of `nodeName`. The `nodeName` field bypasses the Kubernetes scheduler, which can cause issues with storage provisioning. When a StorageClass has `volumeBindingMode: WaitForFirstConsumer`, the CSI controller relies on scheduler decisions to properly bind PVCs. Using `nodeName` prevents this scheduling integration, potentially causing PVC binding failures.
+
+**Network CIDR Considerations**: When deploying CKS (CloudStack Kubernetes Service) clusters on pre-existing networks, avoid using the `10.0.0.0/16` CIDR range as it conflicts with Calico's default pod network configuration. This overlap can prevent proper CSI driver initialization and may cause networking issues within the cluster.
 
 ## See also
 
