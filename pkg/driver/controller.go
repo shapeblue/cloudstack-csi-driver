@@ -340,7 +340,7 @@ func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 
 	t, err := time.Parse("2006-01-02T15:04:05-0700", snapshot.CreatedAt)
 	if err != nil {
-		panic(err)
+		return nil, status.Errorf(codes.Internal, "Failed to parse snapshot creation time: %v", err)
 	}
 
 	// Convert to Timestamp protobuf
