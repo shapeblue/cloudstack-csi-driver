@@ -221,8 +221,12 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 }
 
 func printVolumeAsJSON(vol *csi.CreateVolumeRequest) {
-	b, _ := json.MarshalIndent(vol, "", "  ")
-	fmt.Println(string(b))
+	b, err := json.MarshalIndent(vol, "", "  ")
+	if err != nil {
+		klog.Errorf("Failed to marshal CreateVolumeRequest to JSON: %v", err)
+		return
+	}
+	klog.V(5).Infof("CreateVolumeRequest as JSON:\n%s", string(b))
 }
 
 func checkVolumeSuitable(vol *cloud.Volume,

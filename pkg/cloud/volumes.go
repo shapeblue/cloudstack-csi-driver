@@ -187,7 +187,7 @@ func (c *client) CreateVolumeFromSnapshot(ctx context.Context, zoneID, name, dom
 	vol, err := c.Volume.CreateVolume(p)
 	if err != nil {
 		// Handle the error accordingly
-		return nil, fmt.Errorf("failed to create volume from snapshot'%s': %w", snapshotID, err)
+		return nil, fmt.Errorf("failed to create volume from snapshot '%s': %w", snapshotID, err)
 	}
 
 	v := Volume{
