@@ -59,7 +59,7 @@ spec:
 
       containers:
         - name: cloudstack-csi-controller
-          image: cloudstack-csi-driver
+          image: ghcr.io/shapeblue/cloudstack-csi-driver:main
           imagePullPolicy: Always
           args:
             - "controller"
