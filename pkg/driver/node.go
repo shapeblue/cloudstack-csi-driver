@@ -13,9 +13,9 @@ import (
 	"google.golang.org/grpc/status"
 	"k8s.io/klog/v2"
 
-	"github.com/shapeblue/cloudstack-csi-driver/pkg/cloud"
-	"github.com/shapeblue/cloudstack-csi-driver/pkg/mount"
-	"github.com/shapeblue/cloudstack-csi-driver/pkg/util"
+	"github.com/cloudstack/cloudstack-csi-driver/pkg/cloud"
+	"github.com/cloudstack/cloudstack-csi-driver/pkg/mount"
+	"github.com/cloudstack/cloudstack-csi-driver/pkg/util"
 )
 
 const (

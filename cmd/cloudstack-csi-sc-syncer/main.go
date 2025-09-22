@@ -10,7 +10,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/shapeblue/cloudstack-csi-driver/pkg/syncer"
+	"github.com/cloudstack/cloudstack-csi-driver/pkg/syncer"
 )
 
 const agent = "cloudstack-csi-sc-syncer"
