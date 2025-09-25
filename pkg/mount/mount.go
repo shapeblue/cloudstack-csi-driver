@@ -141,7 +141,7 @@ func (m *mounter) getDevicePathBySerialID(ctx context.Context, volumeID string) 
 			return source, nil
 		}
 		if !os.IsNotExist(err) {
-			fmt.Printf("Not found: %s\n", err.Error())
+			logger.Error(err, "Failed to stat device path", "path", source)
 			return "", err
 		}
 	}
