@@ -1,4 +1,4 @@
-module github.com/shapeblue/cloudstack-csi-driver
+module github.com/cloudstack/cloudstack-csi-driver
 
 go 1.21
 
