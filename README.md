@@ -1,6 +1,6 @@
 **Fork Notice:** 
 
-This repo is a fork of the Leaseweb's maitained cloudstack-csi-driver, which is in-turn a fork of Apalia's cloudstack-csi-driver
+This repo is a fork of the [Leaseweb's] (https://github.com/leaseweb/cloudstack-csi-driver) maitained cloudstack-csi-driver, which is in-turn a fork of [Apalia's](https://github.com/apalia/cloudstack-csi-driver) cloudstack-csi-driver
 
 # CloudStack CSI Driver
 

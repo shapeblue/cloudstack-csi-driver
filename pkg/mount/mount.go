@@ -79,6 +79,7 @@ func (m *mounter) GetBlockSizeBytes(devicePath string) (int64, error) {
 }
 
 func (m *mounter) GetDevicePath(ctx context.Context, volumeID string) (string, error) {
+	logger := klog.FromContext(ctx)
 	backoff := wait.Backoff{
 		Duration: 2 * time.Second,
 		Factor:   1.5,
@@ -87,13 +88,13 @@ func (m *mounter) GetDevicePath(ctx context.Context, volumeID string) (string, e
 
 	var devicePath string
 	err := wait.ExponentialBackoffWithContext(ctx, backoff, func(context.Context) (bool, error) {
-		path, err := m.getDevicePathBySerialID(volumeID)
+		path, err := m.getDevicePathBySerialID(ctx, volumeID)
 		if err != nil {
 			return false, err
 		}
 		if path != "" {
 			devicePath = path
-
+			logger.V(4).Info("Device path found", "volumeID", volumeID, "devicePath", path)
 			return true, nil
 		}
 		m.probeVolume(ctx)
@@ -110,20 +111,22 @@ func (m *mounter) GetDevicePath(ctx context.Context, volumeID string) (string, e
 	return devicePath, nil
 }
 
-func (m *mounter) getDevicePathBySerialID(volumeID string) (string, error) {
+func (m *mounter) getDevicePathBySerialID(ctx context.Context, volumeID string) (string, error) {
+	logger := klog.FromContext(ctx)
+
 	// First try XenServer device paths
-	xenDevicePath, err := m.getDevicePathForXenServer(volumeID)
+	xenDevicePath, err := m.getDevicePathForXenServer(ctx, volumeID)
 	if err != nil {
-		fmt.Printf("Failed to get XenServer device path: %v\n", err)
+		logger.V(4).Info("Failed to get XenServer device path", "volumeID", volumeID, "error", err)
 	}
 	if xenDevicePath != "" {
 		return xenDevicePath, nil
 	}
 
 	// Try VMware device paths
-	vmwareDevicePath, err := m.getDevicePathForVMware(volumeID)
+	vmwareDevicePath, err := m.getDevicePathForVMware(ctx, volumeID)
 	if err != nil {
-		fmt.Printf("Failed to get VMware device path: %v\n", err)
+		logger.V(4).Info("Failed to get VMware device path", "volumeID", volumeID, "error", err)
 	}
 	if vmwareDevicePath != "" {
 		return vmwareDevicePath, nil
@@ -146,16 +149,18 @@ func (m *mounter) getDevicePathBySerialID(volumeID string) (string, error) {
 	return "", nil
 }
 
-func (m *mounter) getDevicePathForXenServer(volumeID string) (string, error) {
+func (m *mounter) getDevicePathForXenServer(ctx context.Context, volumeID string) (string, error) {
+	logger := klog.FromContext(ctx)
+
 	for i := 'b'; i <= 'z'; i++ {
 		devicePath := fmt.Sprintf("/dev/xvd%c", i)
-		fmt.Printf("Checking XenServer device path: %s\n", devicePath)
+		logger.V(5).Info("Checking XenServer device path", "devicePath", devicePath, "volumeID", volumeID)
 
 		if _, err := os.Stat(devicePath); err == nil {
 			isBlock, err := m.IsBlockDevice(devicePath)
 			if err == nil && isBlock {
-				if m.verifyXenServerDevice(devicePath, volumeID) {
-					fmt.Printf("Found and verified XenServer device: %s\n", devicePath)
+				if m.verifyDevice(ctx, devicePath, volumeID) {
+					logger.V(4).Info("Found and verified XenServer device", "devicePath", devicePath, "volumeID", volumeID)
 					return devicePath, nil
 				}
 			}
@@ -164,46 +169,19 @@ func (m *mounter) getDevicePathForXenServer(volumeID string) (string, error) {
 	return "", fmt.Errorf("device not found for volume %s", volumeID)
 }
 
-func (m *mounter) verifyXenServerDevice(devicePath string, volumeID string) bool {
-	size, err := m.GetBlockSizeBytes(devicePath)
-	if err != nil {
-		fmt.Printf("Failed to get device size: %v\n", err)
-		return false
-	}
-	fmt.Printf("Device size: %d bytes\n", size)
+func (m *mounter) getDevicePathForVMware(ctx context.Context, volumeID string) (string, error) {
+	logger := klog.FromContext(ctx)
 
-	mounted, err := m.isDeviceMounted(devicePath)
-	if err != nil {
-		fmt.Printf("Failed to check if device is mounted: %v\n", err)
-		return false
-	}
-	if mounted {
-		fmt.Printf("Device is already mounted: %s\n", devicePath)
-		return false
-	}
-
-	props, err := m.getDeviceProperties(devicePath)
-	if err != nil {
-		fmt.Printf("Failed to get device properties: %v\n", err)
-		return false
-	}
-	fmt.Printf("Device properties: %v\n", props)
-
-	return true
-}
-
-func (m *mounter) getDevicePathForVMware(volumeID string) (string, error) {
 	// Loop through /dev/sdb to /dev/sdz (/dev/sda -> the root disk)
 	for i := 'b'; i <= 'z'; i++ {
 		devicePath := fmt.Sprintf("/dev/sd%c", i)
-		fmt.Printf("Checking VMware device path: %s\n", devicePath)
+		logger.V(5).Info("Checking VMware device path", "devicePath", devicePath, "volumeID", volumeID)
 
 		if _, err := os.Stat(devicePath); err == nil {
 			isBlock, err := m.IsBlockDevice(devicePath)
 			if err == nil && isBlock {
-				// Use the same verification as for XenServer
-				if m.verifyVMwareDevice(devicePath, volumeID) {
-					fmt.Printf("Found and verified VMware device: %s\n", devicePath)
+				if m.verifyDevice(ctx, devicePath, volumeID) {
+					logger.V(4).Info("Found and verified VMware device", "devicePath", devicePath, "volumeID", volumeID)
 					return devicePath, nil
 				}
 			}
@@ -212,30 +190,32 @@ func (m *mounter) getDevicePathForVMware(volumeID string) (string, error) {
 	return "", fmt.Errorf("device not found for volume %s", volumeID)
 }
 
-func (m *mounter) verifyVMwareDevice(devicePath string, volumeID string) bool {
+func (m *mounter) verifyDevice(ctx context.Context, devicePath string, volumeID string) bool {
+	logger := klog.FromContext(ctx)
+
 	size, err := m.GetBlockSizeBytes(devicePath)
 	if err != nil {
-		fmt.Printf("Failed to get device size: %v\n", err)
+		logger.V(4).Info("Failed to get device size", "devicePath", devicePath, "volumeID", volumeID, "error", err)
 		return false
 	}
-	fmt.Printf("Device size: %d bytes\n", size)
+	logger.V(5).Info("Device size retrieved", "devicePath", devicePath, "volumeID", volumeID, "sizeBytes", size)
 
 	mounted, err := m.isDeviceMounted(devicePath)
 	if err != nil {
-		fmt.Printf("Failed to check if device is mounted: %v\n", err)
+		logger.V(4).Info("Failed to check if device is mounted", "devicePath", devicePath, "volumeID", volumeID, "error", err)
 		return false
 	}
 	if mounted {
-		fmt.Printf("Device is already mounted: %s\n", devicePath)
+		logger.V(4).Info("Device is already mounted", "devicePath", devicePath, "volumeID", volumeID)
 		return false
 	}
 
 	props, err := m.getDeviceProperties(devicePath)
 	if err != nil {
-		fmt.Printf("Failed to get device properties: %v\n", err)
+		logger.V(4).Info("Failed to get device properties", "devicePath", devicePath, "volumeID", volumeID, "error", err)
 		return false
 	}
-	fmt.Printf("Device properties: %v\n", props)
+	logger.V(5).Info("Device properties retrieved", "devicePath", devicePath, "volumeID", volumeID, "properties", props)
 
 	return true
 }

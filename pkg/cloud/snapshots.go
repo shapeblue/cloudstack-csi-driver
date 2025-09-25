@@ -9,17 +9,17 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func (c *client) GetSnapshotByID(ctx context.Context, snapshotID ...string) (*Snapshot, error) {
+func (c *client) GetSnapshotByID(ctx context.Context, snapshotID string) (*Snapshot, error) {
 	logger := klog.FromContext(ctx)
 	p := c.Snapshot.NewListSnapshotsParams()
-	if snapshotID != nil {
-		p.SetId(snapshotID[0])
+	if snapshotID != "" {
+		p.SetId(snapshotID)
 	}
 	if c.projectID != "" {
 		p.SetProjectid(c.projectID)
 	}
 	logger.V(2).Info("CloudStack API call", "command", "ListSnapshots", "params", map[string]string{
-		"id":        snapshotID[0],
+		"id":        snapshotID,
 		"projectid": c.projectID,
 	})
 	l, err := c.Snapshot.ListSnapshots(p)

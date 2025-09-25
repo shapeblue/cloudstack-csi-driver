@@ -25,7 +25,7 @@ type Interface interface {
 	ExpandVolume(ctx context.Context, volumeID string, newSizeInGB int64) error
 
 	CreateVolumeFromSnapshot(ctx context.Context, zoneID, name, domainID, projectID, snapshotID string, sizeInGB int64) (*Volume, error)
-	GetSnapshotByID(ctx context.Context, snapshotID ...string) (*Snapshot, error)
+	GetSnapshotByID(ctx context.Context, snapshotID string) (*Snapshot, error)
 	CreateSnapshot(ctx context.Context, volumeID string) (*Snapshot, error)
 	DeleteSnapshot(ctx context.Context, snapshotID string) error
 }
