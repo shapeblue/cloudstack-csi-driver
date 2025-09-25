@@ -36,7 +36,7 @@ spec:
 
       containers:
         - name: cloudstack-csi-node
-          image: ghcr.io/shapeblue/cloudstack-csi-driver:master
+          image: ghcr.io/shapeblue/cloudstack-csi-driver:main
           imagePullPolicy: IfNotPresent
           args:
             - "node"

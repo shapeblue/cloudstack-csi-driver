@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     branches:
-      - master
+      - main
     tags:
       - v*
 
@@ -38,12 +38,12 @@ jobs:
           username: ${{github.actor}}
           password: ${{secrets.GITHUB_TOKEN}}
 
-      - name: Push master
-        if: github.ref == 'refs/heads/master'
+      - name: Push main
+        if: github.ref == 'refs/heads/main'
         run: |
           for img in $IMAGES; do
-              docker tag ${img} ${REGISTRY_NAME}/${img}:master
-              docker push ${REGISTRY_NAME}/${img}:master
+              docker tag ${img} ${REGISTRY_NAME}/${img}:main
+              docker push ${REGISTRY_NAME}/${img}:main
           done
 
       - name: Push tagged release

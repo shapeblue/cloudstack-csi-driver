@@ -240,18 +240,22 @@ kubectl logs -f <cloudstack-csi-controller pod_name> -n kube-system -c external-
 - [CloudStack documentation on storage](http://docs.cloudstack.apache.org/en/latest/adminguide/storage.html)
 - [CSI (Container Storage Interface) specification](https://github.com/container-storage-interface/spec)
 
----
+## History
 
-    Copyright 2021 Apalia SAS
+Apalia SAS originally started the [CloudStack CSI Driver](https://github.com/apalia/cloudstack-csi-driver)
+project, which was later [forked and progressed](https://github.com/apalia/cloudstack-csi-driver/forks)
+by several members of the CloudStack community, notably [Leaseweb](https://github.com/leaseweb/cloudstack-csi-driver).
 
-    Licensed under the Apache License, Version 2.0 (the "License");
-    you may not use this file except in compliance with the License.
-    You may obtain a copy of the License at
+This repository attempts to widen the scope of the original project to make it work across
+hypervisors (KVM, VMware, XenServer/XCP-ng) and add support for domains, projects, CKS, CAPC, and advanced storage
+operations such as volume snapshots.
 
-            http://www.apache.org/licenses/LICENSE-2.0
+## License
 
-    Unless required by applicable law or agreed to in writing, software
-    distributed under the License is distributed on an "AS IS" BASIS,
-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-    See the License for the specific language governing permissions and
-    limitations under the License.
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at <http://www.apache.org/licenses/LICENSE-2.0>
+
+## Contributors
+
+[![CloudStack CSI Driver Contributors](https://contrib.rocks/image?repo=shapeblue/cloudstack-csi-driver&anon=0&max=500)](https://github.com/shapeblue/cloudstack-csi-driver/graphs/contributors)
