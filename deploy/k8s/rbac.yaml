@@ -36,6 +36,9 @@ rules:
   - apiGroups: ["storage.k8s.io"]
     resources: ["volumeattachments/status"]
     verbs: ["patch"]
+  - apiGroups: ["snapshot.storage.k8s.io"]
+    resources: ["volumesnapshots", "volumesnapshots/status", "volumesnapshotclasses", "volumesnapshotcontents", "volumesnapshotcontents/status"]
+    verbs: ["get", "list", "watch", "update", "create", "patch", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -82,4 +85,36 @@ subjects:
 roleRef:
   kind: ClusterRole
   name: cloudstack-csi-node-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cloudstack-csi-snapshotter-role
+rules:
+- apiGroups: ["snapshot.storage.k8s.io"]
+  resources: ["volumesnapshotclasses"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["snapshot.storage.k8s.io"]
+  resources: ["volumesnapshotcontents"]
+  verbs: ["create", "get", "list", "watch", "update", "delete"]
+- apiGroups: ["snapshot.storage.k8s.io"]
+  resources: ["volumesnapshots"]
+  verbs: ["get", "list", "watch", "update"]
+- apiGroups: ["snapshot.storage.k8s.io"]
+  resources: ["volumesnapshotcontents/status"]
+  verbs: ["update"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cloudstack-csi-snapshotter-binding
+subjects:
+- kind: ServiceAccount
+  name: cloudstack-csi-controller
+  namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: cloudstack-csi-snapshotter-role
   apiGroup: rbac.authorization.k8s.io
