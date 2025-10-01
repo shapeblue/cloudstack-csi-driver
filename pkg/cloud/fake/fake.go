@@ -12,9 +12,11 @@ import (
 )
 
 const zoneID = "a1887604-237c-4212-a9cd-94620b7880fa"
+const snapshotID = "9d076136-657b-4c84-b279-455da3ea484c"
 
 type fakeConnector struct {
 	node          *cloud.VM
+	snapshot      *cloud.Snapshot
 	volumesByID   map[string]cloud.Volume
 	volumesByName map[string]cloud.Volume
 }
@@ -36,8 +38,18 @@ func New() cloud.Interface {
 		ZoneID: zoneID,
 	}
 
+	snapshot := &cloud.Snapshot{
+		ID:        "9d076136-657b-4c84-b279-455da3ea484c",
+		Name:      "pvc-vol-snap-1",
+		DomainID:  "51f0fcb5-db16-4637-94f5-30131010214f",
+		ZoneID:    zoneID,
+		VolumeID:  "4f1f610d-6f17-4ff9-9228-e4062af93e54",
+		CreatedAt: "2025-07-07 16:13:06",
+	}
+
 	return &fakeConnector{
 		node:          node,
+		snapshot:      snapshot,
 		volumesByID:   map[string]cloud.Volume{volume.ID: volume},
 		volumesByName: map[string]cloud.Volume{volume.Name: volume},
 	}
@@ -123,4 +135,20 @@ func (f *fakeConnector) ExpandVolume(_ context.Context, volumeID string, newSize
 	}
 
 	return cloud.ErrNotFound
+}
+
+func (f *fakeConnector) CreateVolumeFromSnapshot(ctx context.Context, zoneID, name, domainID, projectID, snapshotID string, sizeInGB int64) (*cloud.Volume, error) {
+	return nil, nil
+}
+
+func (f *fakeConnector) GetSnapshotByID(ctx context.Context, snapshotID ...string) (*cloud.Snapshot, error) {
+	return f.snapshot, nil
+}
+
+func (f *fakeConnector) CreateSnapshot(ctx context.Context, volumeID string) (*cloud.Snapshot, error) {
+	return f.snapshot, nil
+}
+
+func (f *fakeConnector) DeleteSnapshot(ctx context.Context, snapshotID string) error {
+	return nil
 }
