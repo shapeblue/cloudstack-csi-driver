@@ -182,11 +182,13 @@ func (m *mounter) getDevicePathForVMware(ctx context.Context, volumeID string) (
 			if err == nil && isBlock {
 				if m.verifyDevice(ctx, devicePath, volumeID) {
 					logger.V(4).Info("Found and verified VMware device", "devicePath", devicePath, "volumeID", volumeID)
+
 					return devicePath, nil
 				}
 			}
 		}
 	}
+
 	return "", fmt.Errorf("device not found for volume %s", volumeID)
 }
 
@@ -196,6 +198,7 @@ func (m *mounter) verifyDevice(ctx context.Context, devicePath string, volumeID 
 	size, err := m.GetBlockSizeBytes(devicePath)
 	if err != nil {
 		logger.V(4).Info("Failed to get device size", "devicePath", devicePath, "volumeID", volumeID, "error", err)
+
 		return false
 	}
 	logger.V(5).Info("Device size retrieved", "devicePath", devicePath, "volumeID", volumeID, "sizeBytes", size)
@@ -203,16 +206,19 @@ func (m *mounter) verifyDevice(ctx context.Context, devicePath string, volumeID 
 	mounted, err := m.isDeviceMounted(devicePath)
 	if err != nil {
 		logger.V(4).Info("Failed to check if device is mounted", "devicePath", devicePath, "volumeID", volumeID, "error", err)
+
 		return false
 	}
 	if mounted {
 		logger.V(4).Info("Device is already mounted", "devicePath", devicePath, "volumeID", volumeID)
+
 		return false
 	}
 
 	props, err := m.getDeviceProperties(devicePath)
 	if err != nil {
 		logger.V(4).Info("Failed to get device properties", "devicePath", devicePath, "volumeID", volumeID, "error", err)
+
 		return false
 	}
 	logger.V(5).Info("Device properties retrieved", "devicePath", devicePath, "volumeID", volumeID, "properties", props)
@@ -226,8 +232,10 @@ func (m *mounter) isDeviceMounted(devicePath string) (bool, error) {
 		if strings.Contains(err.Error(), "exit status 1") {
 			return false, nil
 		}
+
 		return false, err
 	}
+
 	return len(output) > 0, nil
 }
 

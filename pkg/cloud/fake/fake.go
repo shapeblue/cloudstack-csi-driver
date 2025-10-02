@@ -139,7 +139,7 @@ func (f *fakeConnector) ExpandVolume(_ context.Context, volumeID string, newSize
 	return cloud.ErrNotFound
 }
 
-func (f *fakeConnector) CreateVolumeFromSnapshot(_ context.Context, zoneID, name, projectID, snapshotID string, sizeInGB int64) (*cloud.Volume, error) {
+func (f *fakeConnector) CreateVolumeFromSnapshot(_ context.Context, zoneID, name, _, snapshotID string, sizeInGB int64) (*cloud.Volume, error) {
 	vol := &cloud.Volume{
 		ID:             "fake-vol-from-snap-" + name,
 		Name:           name,
