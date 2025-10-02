@@ -151,7 +151,16 @@ func (f *fakeConnector) ExpandVolume(_ context.Context, volumeID string, newSize
 }
 
 func (f *fakeConnector) CreateVolumeFromSnapshot(ctx context.Context, zoneID, name, domainID, projectID, snapshotID string, sizeInGB int64) (*cloud.Volume, error) {
-	return nil, nil
+	vol := &cloud.Volume{
+		ID:             "fake-vol-from-snap-" + name,
+		Name:           name,
+		Size:           util.GigaBytesToBytes(sizeInGB),
+		DiskOfferingID: "fake-disk-offering",
+		ZoneID:         zoneID,
+	}
+	f.volumesByID[vol.ID] = *vol
+	f.volumesByName[vol.Name] = *vol
+	return vol, nil
 }
 
 func (f *fakeConnector) GetSnapshotByID(ctx context.Context, snapshotID string) (*cloud.Snapshot, error) {
