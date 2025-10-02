@@ -44,7 +44,7 @@ func New() cloud.Interface {
 		DomainID:  "51f0fcb5-db16-4637-94f5-30131010214f",
 		ZoneID:    zoneID,
 		VolumeID:  "4f1f610d-6f17-4ff9-9228-e4062af93e54",
-		CreatedAt: "2025-07-07 16:13:06",
+		CreatedAt: "2025-07-07T16:13:06-0700",
 	}
 
 	return &fakeConnector{
