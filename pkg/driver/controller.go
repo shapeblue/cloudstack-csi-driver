@@ -166,6 +166,7 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 				},
 			},
 		}
+
 		return resp, nil
 	}
 
@@ -226,6 +227,7 @@ func printVolumeAsJSON(vol *csi.CreateVolumeRequest) {
 	b, err := json.MarshalIndent(vol, "", "  ")
 	if err != nil {
 		klog.Errorf("Failed to marshal CreateVolumeRequest to JSON: %v", err)
+
 		return
 	}
 	klog.V(5).Infof("CreateVolumeRequest as JSON:\n%s", string(b))
@@ -347,8 +349,10 @@ func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 		if errors.Is(err, cloud.ErrNotFound) {
 			return nil, status.Errorf(codes.NotFound, "Volume %v not found", volumeID)
 		}
+
 		return nil, status.Errorf(codes.Internal, "Error %v", err)
 	}
+
 	klog.V(4).Infof("CreateSnapshot of volume: %s", volume.ID)
 	snapshot, err := cs.connector.CreateSnapshot(ctx, volume.ID, req.GetName())
 	if errors.Is(err, cloud.ErrAlreadyExists) {
@@ -372,6 +376,7 @@ func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 			ReadyToUse:     true,
 		},
 	}
+
 	return resp, nil
 }
 
@@ -385,14 +390,14 @@ func (cs *controllerServer) ListSnapshots(ctx context.Context, req *csi.ListSnap
 
 	// Pagination logic
 	start := 0
-	if req.StartingToken != "" {
+	if req.GetStartingToken() != "" {
 		var err error
-		start, err = strconv.Atoi(req.StartingToken)
+		start, err = strconv.Atoi(req.GetStartingToken())
 		if err != nil || start < 0 || start > len(snapshots) {
 			return nil, status.Error(codes.Aborted, "Invalid startingToken")
 		}
 	}
-	maxEntries := int(req.MaxEntries)
+	maxEntries := int(req.GetMaxEntries())
 	end := len(snapshots)
 	if maxEntries > 0 && start+maxEntries < end {
 		end = start + maxEntries
@@ -416,6 +421,7 @@ func (cs *controllerServer) ListSnapshots(ctx context.Context, req *csi.ListSnap
 		}
 		entries = append(entries, entry)
 	}
+
 	return &csi.ListSnapshotsResponse{Entries: entries, NextToken: nextToken}, nil
 }
 

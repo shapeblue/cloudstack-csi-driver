@@ -139,7 +139,7 @@ func (f *fakeConnector) ExpandVolume(_ context.Context, volumeID string, newSize
 	return cloud.ErrNotFound
 }
 
-func (f *fakeConnector) CreateVolumeFromSnapshot(_ context.Context, zoneID, name, _, snapshotID string, sizeInGB int64) (*cloud.Volume, error) {
+func (f *fakeConnector) CreateVolumeFromSnapshot(_ context.Context, zoneID, name, _, _ string, sizeInGB int64) (*cloud.Volume, error) {
 	vol := &cloud.Volume{
 		ID:             "fake-vol-from-snap-" + name,
 		Name:           name,
@@ -149,6 +149,7 @@ func (f *fakeConnector) CreateVolumeFromSnapshot(_ context.Context, zoneID, name
 	}
 	f.volumesByID[vol.ID] = *vol
 	f.volumesByName[vol.Name] = *vol
+
 	return vol, nil
 }
 
@@ -161,6 +162,7 @@ func (f *fakeConnector) CreateSnapshot(_ context.Context, volumeID, name string)
 			// Allow multiple snapshots with the same name for the same volume
 			continue
 		}
+
 		// Name conflict: same name, different volume
 		return nil, cloud.ErrAlreadyExists
 	}
@@ -175,6 +177,7 @@ func (f *fakeConnector) CreateSnapshot(_ context.Context, volumeID, name string)
 	}
 	f.snapshotsByID[newSnap.ID] = newSnap
 	f.snapshotsByName[name] = append(f.snapshotsByName[name], newSnap)
+
 	return newSnap, nil
 }
 
@@ -183,6 +186,7 @@ func (f *fakeConnector) GetSnapshotByID(_ context.Context, snapshotID string) (*
 	if ok {
 		return snap, nil
 	}
+
 	return nil, cloud.ErrNotFound
 }
 
@@ -194,6 +198,7 @@ func (f *fakeConnector) GetSnapshotByName(_ context.Context, name string) (*clou
 	if ok && len(snaps) > 0 {
 		return snaps[0], nil // Return the first for compatibility
 	}
+
 	return nil, cloud.ErrNotFound
 }
 
@@ -204,6 +209,7 @@ func (f *fakeConnector) ListSnapshots(_ context.Context, volumeID, snapshotID st
 		if snap, ok := f.snapshotsByID[snapshotID]; ok {
 			result = append(result, snap)
 		}
+
 		return result, nil
 	}
 	if volumeID != "" {
@@ -212,11 +218,13 @@ func (f *fakeConnector) ListSnapshots(_ context.Context, volumeID, snapshotID st
 				result = append(result, snap)
 			}
 		}
+
 		return result, nil
 	}
 	for _, snap := range f.snapshotsByID {
 		result = append(result, snap)
 	}
+
 	return result, nil
 }
 
@@ -225,9 +233,9 @@ func (f *fakeConnector) DeleteSnapshot(_ context.Context, snapshotID string) err
 	if !ok {
 		return cloud.ErrNotFound
 	}
-	// Remove from snapshotsByID
+
 	delete(f.snapshotsByID, snapshotID)
-	// Remove from snapshotsByName
+
 	name := snap.Name
 	snaps := f.snapshotsByName[name]
 	for i, s := range snaps {
@@ -236,5 +244,6 @@ func (f *fakeConnector) DeleteSnapshot(_ context.Context, snapshotID string) err
 			break
 		}
 	}
+
 	return nil
 }

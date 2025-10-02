@@ -71,6 +71,7 @@ func (c *client) CreateSnapshot(ctx context.Context, volumeID, name string) (*Sn
 		VolumeID:  snapshot.Volumeid,
 		CreatedAt: snapshot.Created,
 	}
+
 	return &snap, nil
 }
 
@@ -160,5 +161,6 @@ func (c *client) ListSnapshots(ctx context.Context, volumeID, snapshotID string)
 		}
 		result = append(result, s)
 	}
+
 	return result, nil
 }

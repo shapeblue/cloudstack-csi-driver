@@ -95,6 +95,7 @@ func (m *mounter) GetDevicePath(ctx context.Context, volumeID string) (string, e
 		if path != "" {
 			devicePath = path
 			logger.V(4).Info("Device path found", "volumeID", volumeID, "devicePath", path)
+
 			return true, nil
 		}
 		m.probeVolume(ctx)
@@ -142,6 +143,7 @@ func (m *mounter) getDevicePathBySerialID(ctx context.Context, volumeID string) 
 		}
 		if !os.IsNotExist(err) {
 			logger.Error(err, "Failed to stat device path", "path", source)
+
 			return "", err
 		}
 	}
@@ -161,11 +163,13 @@ func (m *mounter) getDevicePathForXenServer(ctx context.Context, volumeID string
 			if err == nil && isBlock {
 				if m.verifyDevice(ctx, devicePath, volumeID) {
 					logger.V(4).Info("Found and verified XenServer device", "devicePath", devicePath, "volumeID", volumeID)
+
 					return devicePath, nil
 				}
 			}
 		}
 	}
+
 	return "", fmt.Errorf("device not found for volume %s", volumeID)
 }
 

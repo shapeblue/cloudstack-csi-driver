@@ -10,6 +10,8 @@ import (
 )
 
 // Interface is the CloudStack client interface.
+//
+//revive:disable:interfacebloat
 type Interface interface {
 	GetNodeInfo(ctx context.Context, vmName string) (*VM, error)
 	GetVMByID(ctx context.Context, vmID string) (*VM, error)
