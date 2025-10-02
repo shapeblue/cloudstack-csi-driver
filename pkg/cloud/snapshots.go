@@ -120,6 +120,7 @@ func (c *client) GetSnapshotByName(ctx context.Context, name string) (*Snapshot,
 		VolumeID:  snapshot.Volumeid,
 		CreatedAt: snapshot.Created,
 	}
+
 	return &s, nil
 }
 
@@ -147,7 +148,7 @@ func (c *client) ListSnapshots(ctx context.Context, volumeID, snapshotID string)
 	if l.Count == 0 {
 		return []*Snapshot{}, nil
 	}
-	var result []*Snapshot
+	result := make([]*Snapshot, 0, l.Count)
 	for _, snapshot := range l.Snapshots {
 		s := &Snapshot{
 			ID:        snapshot.Id,

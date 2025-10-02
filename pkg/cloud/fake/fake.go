@@ -204,23 +204,29 @@ func (f *fakeConnector) GetSnapshotByName(_ context.Context, name string) (*clou
 
 // ListSnapshots returns all matching snapshots; pagination must be handled by the controller.
 func (f *fakeConnector) ListSnapshots(_ context.Context, volumeID, snapshotID string) ([]*cloud.Snapshot, error) {
-	var result []*cloud.Snapshot
 	if snapshotID != "" {
+		result := make([]*cloud.Snapshot, 0, 1)
 		if snap, ok := f.snapshotsByID[snapshotID]; ok {
 			result = append(result, snap)
 		}
-
 		return result, nil
 	}
 	if volumeID != "" {
+		count := 0
+		for _, snap := range f.snapshotsByID {
+			if snap.VolumeID == volumeID {
+				count++
+			}
+		}
+		result := make([]*cloud.Snapshot, 0, count)
 		for _, snap := range f.snapshotsByID {
 			if snap.VolumeID == volumeID {
 				result = append(result, snap)
 			}
 		}
-
 		return result, nil
 	}
+	result := make([]*cloud.Snapshot, 0, len(f.snapshotsByID))
 	for _, snap := range f.snapshotsByID {
 		result = append(result, snap)
 	}
@@ -241,6 +247,7 @@ func (f *fakeConnector) DeleteSnapshot(_ context.Context, snapshotID string) err
 	for i, s := range snaps {
 		if s.ID == snapshotID {
 			f.snapshotsByName[name] = append(snaps[:i], snaps[i+1:]...)
+
 			break
 		}
 	}
