@@ -336,7 +336,7 @@ func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 		// Error with CloudStack
 		return nil, status.Errorf(codes.Internal, "Error %v", err)
 	}
-	klog.V(4).Infof("CreateSnapshot of volume: %s", volume)
+	klog.V(4).Infof("CreateSnapshot of volume: %s", volume.ID)
 	snapshot, err := cs.connector.CreateSnapshot(ctx, volume.ID)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to create snapshot for volume %s: %v", volume.ID, err.Error())
