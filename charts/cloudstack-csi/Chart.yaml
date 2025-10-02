@@ -5,7 +5,7 @@ type: application
 version: 3.0.0
 appVersion: 0.6.1
 sources:
-  - https://github.com/shapeblue/cloudstack-csi-driver
+  - https://github.com/cloudstack/cloudstack-csi-driver
 keywords:
   - csi
   - cloudStack

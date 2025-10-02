@@ -4,9 +4,9 @@ This repo is a fork of the [Leaseweb's] (https://github.com/leaseweb/cloudstack-
 
 # CloudStack CSI Driver
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/shapeblue/cloudstack-csi-driver.svg)](https://pkg.go.dev/github.com/shapeblue/cloudstack-csi-driver)
-[![Go Report Card](https://goreportcard.com/badge/github.com/shapeblue/cloudstack-csi-driver)](https://goreportcard.com/report/github.com/shapeblue/cloudstack-csi-driver)
-[![Release](https://github.com/shapeblue/cloudstack-csi-driver/workflows/Release/badge.svg?branch=master)](https://github.com/shapeblue/cloudstack-csi-driver/actions)
+[![Go Reference](https://pkg.go.dev/badge/github.com/cloudstack/cloudstack-csi-driver.svg)](https://pkg.go.dev/github.com/cloudstack/cloudstack-csi-driver)
+[![Go Report Card](https://goreportcard.com/badge/github.com/cloudstack/cloudstack-csi-driver)](https://goreportcard.com/report/github.com/cloudstack/cloudstack-csi-driver)
+[![Release](https://github.com/cloudstack/cloudstack-csi-driver/workflows/Release/badge.svg?branch=main)](https://github.com/cloudstack/cloudstack-csi-driver/actions)
 
 This repository provides a [Container Storage Interface (CSI)](https://github.com/container-storage-interface/spec)
 plugin for [Apache CloudStack](https://cloudstack.apache.org/).
@@ -60,7 +60,7 @@ you may use the same secret for both tools.
 ### Deployment
 
 ```
-kubectl apply -f https://github.com/shapeblue/cloudstack-csi-driver/releases/latest/download/manifest.yaml
+kubectl apply -f https://github.com/cloudstack/cloudstack-csi-driver/releases/latest/download/manifest.yaml
 ```
 
 ### Creation of Storage classes
@@ -258,4 +258,4 @@ License at <http://www.apache.org/licenses/LICENSE-2.0>
 
 ## Contributors
 
-[![CloudStack CSI Driver Contributors](https://contrib.rocks/image?repo=shapeblue/cloudstack-csi-driver&anon=0&max=500)](https://github.com/shapeblue/cloudstack-csi-driver/graphs/contributors)
+[![CloudStack CSI Driver Contributors](https://contrib.rocks/image?repo=cloudstack/cloudstack-csi-driver&anon=0&max=500)](https://github.com/cloudstack/cloudstack-csi-driver/graphs/contributors)

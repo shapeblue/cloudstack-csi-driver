@@ -20,7 +20,7 @@ You may use it locally or as a Kubernetes Job.
 You must have a CloudStack configuration file and a Kubernetes `kubeconfig`
 file.
 
-1. Download `cloudstack-csi-sc-syncer` from [latest release](https://github.com/shapeblue/cloudstack-csi-driver/releases/latest/);
+1. Download `cloudstack-csi-sc-syncer` from [latest release](https://github.com/cloudstack/cloudstack-csi-driver/releases/latest/);
 
 1. Set the execution permission:
 
@@ -85,7 +85,7 @@ spec:
       serviceAccountName: cloudstack-csi-sc-syncer
       containers:
         - name: cloudstack-csi-sc-syncer
-          image: ghcr.io/shapeblue/cloudstack-csi-sc-syncer:${version}
+          image: ghcr.io/cloudstack/cloudstack-csi-sc-syncer:${version}
           args:
             - "-cloudstackconfig=/etc/cloudstack-csi-driver/cloud-config"
             - "-kubeconfig=-"

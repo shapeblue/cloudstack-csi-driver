@@ -18,8 +18,8 @@ import (
 	"k8s.io/component-base/logs/json"
 	"k8s.io/klog/v2"
 
-	"github.com/shapeblue/cloudstack-csi-driver/pkg/cloud"
-	"github.com/shapeblue/cloudstack-csi-driver/pkg/driver"
+	"github.com/cloudstack/cloudstack-csi-driver/pkg/cloud"
+	"github.com/cloudstack/cloudstack-csi-driver/pkg/driver"
 )
 
 func main() {
