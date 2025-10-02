@@ -328,11 +328,32 @@ func (cs *controllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequest) (*csi.CreateSnapshotResponse, error) {
 	klog.V(4).Infof("CreateSnapshot")
 
+	if req.GetName() == "" {
+		return nil, status.Error(codes.InvalidArgument, "Snapshot name missing in request")
+	}
+
 	volumeID := req.GetSourceVolumeId()
+	if volumeID == "" {
+		return nil, status.Error(codes.InvalidArgument, "SourceVolumeId missing in request")
+	}
+
+	// Check for existing snapshot with same name but different source volume ID
+	if req.GetName() != "" {
+		// check if the name matches and volumeID differs
+		existingSnap, err := cs.connector.GetSnapshotByName(ctx, req.GetName())
+		if err == nil && existingSnap.VolumeID != volumeID {
+			return nil, status.Errorf(codes.AlreadyExists, "Snapshot with name %s already exists for a different source volume", req.GetName())
+		}
+	}
+
 	volume, err := cs.connector.GetVolumeByID(ctx, volumeID)
-	if errors.Is(err, cloud.ErrNotFound) {
-		return nil, status.Errorf(codes.NotFound, "Volume %v not found", volumeID)
-	} else if err != nil {
+	if err != nil {
+		if err.Error() == "invalid volume ID: empty string" {
+			return nil, status.Error(codes.InvalidArgument, "Invalid volume ID")
+		}
+		if errors.Is(err, cloud.ErrNotFound) {
+			return nil, status.Errorf(codes.NotFound, "Volume %v not found", volumeID)
+		}
 		// Error with CloudStack
 		return nil, status.Errorf(codes.Internal, "Error %v", err)
 	}
@@ -361,6 +382,11 @@ func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 	}
 	return resp, nil
 
+}
+
+func (cs *controllerServer) ListSnapshots(ctx context.Context, req *csi.ListSnapshotsRequest) (*csi.ListSnapshotsResponse, error) {
+	// Stub implementation: returns an empty list
+	return &csi.ListSnapshotsResponse{Entries: []*csi.ListSnapshotsResponse_Entry{}}, nil
 }
 
 func (cs *controllerServer) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequest) (*csi.DeleteSnapshotResponse, error) {

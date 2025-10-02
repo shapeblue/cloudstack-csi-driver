@@ -4,6 +4,7 @@ package fake
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/hashicorp/go-uuid"
 
@@ -15,10 +16,11 @@ const zoneID = "a1887604-237c-4212-a9cd-94620b7880fa"
 const snapshotID = "9d076136-657b-4c84-b279-455da3ea484c"
 
 type fakeConnector struct {
-	node          *cloud.VM
-	snapshot      *cloud.Snapshot
-	volumesByID   map[string]cloud.Volume
-	volumesByName map[string]cloud.Volume
+	node            *cloud.VM
+	snapshot        *cloud.Snapshot
+	volumesByID     map[string]cloud.Volume
+	volumesByName   map[string]cloud.Volume
+	snapshotsByName map[string]*cloud.Snapshot
 }
 
 // New returns a new fake implementation of the
@@ -47,11 +49,16 @@ func New() cloud.Interface {
 		CreatedAt: "2025-07-07T16:13:06-0700",
 	}
 
+	snapshotsByName := map[string]*cloud.Snapshot{
+		snapshot.Name: snapshot,
+	}
+
 	return &fakeConnector{
-		node:          node,
-		snapshot:      snapshot,
-		volumesByID:   map[string]cloud.Volume{volume.ID: volume},
-		volumesByName: map[string]cloud.Volume{volume.Name: volume},
+		node:            node,
+		snapshot:        snapshot,
+		volumesByID:     map[string]cloud.Volume{volume.ID: volume},
+		volumesByName:   map[string]cloud.Volume{volume.Name: volume},
+		snapshotsByName: snapshotsByName,
 	}
 }
 
@@ -72,6 +79,9 @@ func (f *fakeConnector) ListZonesID(_ context.Context) ([]string, error) {
 }
 
 func (f *fakeConnector) GetVolumeByID(_ context.Context, volumeID string) (*cloud.Volume, error) {
+	if volumeID == "" {
+		return nil, fmt.Errorf("invalid volume ID: empty string")
+	}
 	vol, ok := f.volumesByID[volumeID]
 	if ok {
 		return &vol, nil
@@ -81,6 +91,9 @@ func (f *fakeConnector) GetVolumeByID(_ context.Context, volumeID string) (*clou
 }
 
 func (f *fakeConnector) GetVolumeByName(_ context.Context, name string) (*cloud.Volume, error) {
+	if name == "" {
+		return nil, fmt.Errorf("invalid volume name: empty string")
+	}
 	vol, ok := f.volumesByName[name]
 	if ok {
 		return &vol, nil
@@ -151,4 +164,14 @@ func (f *fakeConnector) CreateSnapshot(ctx context.Context, volumeID string) (*c
 
 func (f *fakeConnector) DeleteSnapshot(ctx context.Context, snapshotID string) error {
 	return nil
+}
+
+func (f *fakeConnector) GetSnapshotByName(_ context.Context, name string) (*cloud.Snapshot, error) {
+	if name == "" {
+		return nil, fmt.Errorf("invalid snapshot name: empty string")
+	}
+	if snap, ok := f.snapshotsByName[name]; ok {
+		return snap, nil
+	}
+	return nil, cloud.ErrNotFound
 }

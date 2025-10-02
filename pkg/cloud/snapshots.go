@@ -81,3 +81,40 @@ func (c *client) DeleteSnapshot(ctx context.Context, snapshotID string) error {
 
 	return err
 }
+
+func (c *client) GetSnapshotByName(ctx context.Context, name string) (*Snapshot, error) {
+	logger := klog.FromContext(ctx)
+	if name == "" {
+		return nil, ErrNotFound
+	}
+	p := c.Snapshot.NewListSnapshotsParams()
+	p.SetName(name)
+	if c.projectID != "" {
+		p.SetProjectid(c.projectID)
+	}
+	logger.V(2).Info("CloudStack API call", "command", "ListSnapshots", "params", map[string]string{
+		"name":      name,
+		"projectid": c.projectID,
+	})
+	l, err := c.Snapshot.ListSnapshots(p)
+	if err != nil {
+		return nil, err
+	}
+	if l.Count == 0 {
+		return nil, ErrNotFound
+	}
+	if l.Count > 1 {
+		return nil, ErrTooManyResults
+	}
+	snapshot := l.Snapshots[0]
+	s := Snapshot{
+		ID:        snapshot.Id,
+		Name:      snapshot.Name,
+		DomainID:  snapshot.Domainid,
+		ProjectID: snapshot.Projectid,
+		ZoneID:    snapshot.Zoneid,
+		VolumeID:  snapshot.Volumeid,
+		CreatedAt: snapshot.Created,
+	}
+	return &s, nil
+}
