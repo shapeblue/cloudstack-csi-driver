@@ -231,17 +231,6 @@ func (m *mounter) isDeviceMounted(devicePath string) (bool, error) {
 	return len(output) > 0, nil
 }
 
-func (m *mounter) isDeviceInUse(devicePath string) (bool, error) {
-	output, err := m.Exec.Command("lsof", devicePath).Output()
-	if err != nil {
-		if strings.Contains(err.Error(), "exit status 1") {
-			return false, nil
-		}
-		return false, err
-	}
-	return len(output) > 0, nil
-}
-
 func (m *mounter) getDeviceProperties(devicePath string) (map[string]string, error) {
 	output, err := m.Exec.Command("udevadm", "info", "--query=property", devicePath).Output()
 	if err != nil {

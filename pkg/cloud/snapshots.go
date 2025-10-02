@@ -71,7 +71,7 @@ func (c *client) CreateSnapshot(ctx context.Context, volumeID string) (*Snapshot
 	return &snap, nil
 }
 
-func (c *client) DeleteSnapshot(ctx context.Context, snapshotID string) error {
+func (c *client) DeleteSnapshot(_ context.Context, snapshotID string) error {
 	p := c.Snapshot.NewDeleteSnapshotParams(snapshotID)
 	_, err := c.Snapshot.DeleteSnapshot(p)
 	if err != nil && strings.Contains(err.Error(), "4350") {
