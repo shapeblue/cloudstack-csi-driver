@@ -49,6 +49,7 @@ func NewControllerServer(connector cloud.Interface) csi.ControllerServer {
 	}
 }
 
+//nolint:gocognit
 func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
 	logger := klog.FromContext(ctx)
 	logger.V(6).Info("CreateVolume: called", "args", *req)
