@@ -27,8 +27,9 @@ type Interface interface {
 	CreateVolumeFromSnapshot(ctx context.Context, zoneID, name, projectID, snapshotID string, sizeInGB int64) (*Volume, error)
 	GetSnapshotByID(ctx context.Context, snapshotID string) (*Snapshot, error)
 	GetSnapshotByName(ctx context.Context, name string) (*Snapshot, error)
-	CreateSnapshot(ctx context.Context, volumeID string) (*Snapshot, error)
+	CreateSnapshot(ctx context.Context, volumeID, name string) (*Snapshot, error)
 	DeleteSnapshot(ctx context.Context, snapshotID string) error
+	ListSnapshots(ctx context.Context, volumeID, snapshotID string) ([]*Snapshot, error)
 }
 
 // Volume represents a CloudStack volume.
@@ -71,6 +72,7 @@ type VM struct {
 var (
 	ErrNotFound       = errors.New("not found")
 	ErrTooManyResults = errors.New("too many results")
+	ErrAlreadyExists  = errors.New("already exists")
 )
 
 // client is the implementation of Interface.

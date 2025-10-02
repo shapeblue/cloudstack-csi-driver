@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"strconv"
 	"time"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -338,15 +339,6 @@ func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 		return nil, status.Error(codes.InvalidArgument, "SourceVolumeId missing in request")
 	}
 
-	// Check for existing snapshot with same name but different source volume ID
-	if req.GetName() != "" {
-		// check if the name matches and volumeID differs
-		existingSnap, err := cs.connector.GetSnapshotByName(ctx, req.GetName())
-		if err == nil && existingSnap.VolumeID != volumeID {
-			return nil, status.Errorf(codes.AlreadyExists, "Snapshot with name %s already exists for a different source volume", req.GetName())
-		}
-	}
-
 	volume, err := cs.connector.GetVolumeByID(ctx, volumeID)
 	if err != nil {
 		if err.Error() == "invalid volume ID: empty string" {
@@ -355,12 +347,13 @@ func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 		if errors.Is(err, cloud.ErrNotFound) {
 			return nil, status.Errorf(codes.NotFound, "Volume %v not found", volumeID)
 		}
-		// Error with CloudStack
 		return nil, status.Errorf(codes.Internal, "Error %v", err)
 	}
 	klog.V(4).Infof("CreateSnapshot of volume: %s", volume.ID)
-	snapshot, err := cs.connector.CreateSnapshot(ctx, volume.ID)
-	if err != nil {
+	snapshot, err := cs.connector.CreateSnapshot(ctx, volume.ID, req.GetName())
+	if errors.Is(err, cloud.ErrAlreadyExists) {
+		return nil, status.Errorf(codes.AlreadyExists, "Snapshot name conflict: already exists for a different source volume")
+	} else if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to create snapshot for volume %s: %v", volume.ID, err.Error())
 	}
 
@@ -369,7 +362,6 @@ func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 		return nil, status.Errorf(codes.Internal, "Failed to parse snapshot creation time: %v", err)
 	}
 
-	// Convert to Timestamp protobuf
 	ts := timestamppb.New(t)
 
 	resp := &csi.CreateSnapshotResponse{
@@ -378,37 +370,53 @@ func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 			SourceVolumeId: volume.ID,
 			CreationTime:   ts,
 			ReadyToUse:     true,
-			// We leave the optional SizeBytes field unset as the size of a block storage snapshot is the size of the difference to the volume or previous snapshots, k8s however expects the size to be the size of the restored volume.
 		},
 	}
 	return resp, nil
-
 }
 
 func (cs *controllerServer) ListSnapshots(ctx context.Context, req *csi.ListSnapshotsRequest) (*csi.ListSnapshotsResponse, error) {
 	entries := []*csi.ListSnapshotsResponse_Entry{}
 
-	if req.GetSnapshotId() != "" {
-		snap, err := cs.connector.GetSnapshotByID(ctx, req.GetSnapshotId())
-		if err == nil && snap != nil {
-			t, _ := time.Parse("2006-01-02T15:04:05-0700", snap.CreatedAt)
-			ts := timestamppb.New(t)
-			entry := &csi.ListSnapshotsResponse_Entry{
-				Snapshot: &csi.Snapshot{
-					SnapshotId:     snap.ID,
-					SourceVolumeId: snap.VolumeID,
-					CreationTime:   ts,
-					ReadyToUse:     true,
-				},
-			}
-			entries = append(entries, entry)
-			return &csi.ListSnapshotsResponse{Entries: entries}, nil
-		}
-		// If not found, return empty list
-		return &csi.ListSnapshotsResponse{Entries: []*csi.ListSnapshotsResponse_Entry{}}, nil
+	snapshots, err := cs.connector.ListSnapshots(ctx, req.GetSourceVolumeId(), req.GetSnapshotId())
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to list snapshots: %v", err)
 	}
 
-	return &csi.ListSnapshotsResponse{Entries: entries}, nil
+	// Pagination logic
+	start := 0
+	if req.StartingToken != "" {
+		var err error
+		start, err = strconv.Atoi(req.StartingToken)
+		if err != nil || start < 0 || start > len(snapshots) {
+			return nil, status.Error(codes.Aborted, "Invalid startingToken")
+		}
+	}
+	maxEntries := int(req.MaxEntries)
+	end := len(snapshots)
+	if maxEntries > 0 && start+maxEntries < end {
+		end = start + maxEntries
+	}
+	nextToken := ""
+	if end < len(snapshots) {
+		nextToken = strconv.Itoa(end)
+	}
+
+	for i := start; i < end; i++ {
+		snap := snapshots[i]
+		t, _ := time.Parse("2006-01-02T15:04:05-0700", snap.CreatedAt)
+		ts := timestamppb.New(t)
+		entry := &csi.ListSnapshotsResponse_Entry{
+			Snapshot: &csi.Snapshot{
+				SnapshotId:     snap.ID,
+				SourceVolumeId: snap.VolumeID,
+				CreationTime:   ts,
+				ReadyToUse:     true,
+			},
+		}
+		entries = append(entries, entry)
+	}
+	return &csi.ListSnapshotsResponse{Entries: entries, NextToken: nextToken}, nil
 }
 
 func (cs *controllerServer) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequest) (*csi.DeleteSnapshotResponse, error) {
@@ -420,17 +428,12 @@ func (cs *controllerServer) DeleteSnapshot(ctx context.Context, req *csi.DeleteS
 
 	klog.V(4).Infof("DeleteSnapshot for snapshotID: %s", snapshotID)
 
-	snapshot, err := cs.connector.GetSnapshotByID(ctx, snapshotID)
+	err := cs.connector.DeleteSnapshot(ctx, snapshotID)
 	if errors.Is(err, cloud.ErrNotFound) {
-		return nil, status.Errorf(codes.NotFound, "Snapshot %v not found", snapshotID)
+		// Per CSI spec, return OK if snapshot does not exist
+		return &csi.DeleteSnapshotResponse{}, nil
 	} else if err != nil {
-		// Error with CloudStack
 		return nil, status.Errorf(codes.Internal, "Error %v", err)
-	}
-
-	err = cs.connector.DeleteSnapshot(ctx, snapshot.ID)
-	if err != nil && !errors.Is(err, cloud.ErrNotFound) {
-		return nil, status.Errorf(codes.Internal, "Cannot delete snapshot %s: %s", snapshotID, err.Error())
 	}
 
 	return &csi.DeleteSnapshotResponse{}, nil
