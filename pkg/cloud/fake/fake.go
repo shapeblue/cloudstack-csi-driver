@@ -4,7 +4,7 @@ package fake
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	"github.com/hashicorp/go-uuid"
 
@@ -80,7 +80,7 @@ func (f *fakeConnector) ListZonesID(_ context.Context) ([]string, error) {
 
 func (f *fakeConnector) GetVolumeByID(_ context.Context, volumeID string) (*cloud.Volume, error) {
 	if volumeID == "" {
-		return nil, fmt.Errorf("invalid volume ID: empty string")
+		return nil, errors.New("invalid volume ID: empty string")
 	}
 	vol, ok := f.volumesByID[volumeID]
 	if ok {
@@ -92,7 +92,7 @@ func (f *fakeConnector) GetVolumeByID(_ context.Context, volumeID string) (*clou
 
 func (f *fakeConnector) GetVolumeByName(_ context.Context, name string) (*cloud.Volume, error) {
 	if name == "" {
-		return nil, fmt.Errorf("invalid volume name: empty string")
+		return nil, errors.New("invalid volume name: empty string")
 	}
 	vol, ok := f.volumesByName[name]
 	if ok {
@@ -177,7 +177,7 @@ func (f *fakeConnector) DeleteSnapshot(ctx context.Context, snapshotID string) e
 
 func (f *fakeConnector) GetSnapshotByName(_ context.Context, name string) (*cloud.Snapshot, error) {
 	if name == "" {
-		return nil, fmt.Errorf("invalid snapshot name: empty string")
+		return nil, errors.New("invalid snapshot name: empty string")
 	}
 	if snap, ok := f.snapshotsByName[name]; ok {
 		return snap, nil

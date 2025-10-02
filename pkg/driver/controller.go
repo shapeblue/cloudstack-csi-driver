@@ -385,8 +385,27 @@ func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 }
 
 func (cs *controllerServer) ListSnapshots(ctx context.Context, req *csi.ListSnapshotsRequest) (*csi.ListSnapshotsResponse, error) {
-	// Stub implementation: returns an empty list
-	return &csi.ListSnapshotsResponse{Entries: []*csi.ListSnapshotsResponse_Entry{}}, nil
+	entries := []*csi.ListSnapshotsResponse_Entry{}
+
+	if req.GetSnapshotId() != "" {
+		snap, err := cs.connector.GetSnapshotByID(ctx, req.GetSnapshotId())
+		if err == nil && snap != nil {
+			t, _ := time.Parse("2006-01-02T15:04:05-0700", snap.CreatedAt)
+			ts := timestamppb.New(t)
+			entry := &csi.ListSnapshotsResponse_Entry{
+				Snapshot: &csi.Snapshot{
+					SnapshotId:     snap.ID,
+					SourceVolumeId: snap.VolumeID,
+					CreationTime:   ts,
+					ReadyToUse:     true,
+				},
+			}
+			entries = append(entries, entry)
+		}
+		return &csi.ListSnapshotsResponse{Entries: entries}, nil
+	}
+
+	return &csi.ListSnapshotsResponse{Entries: entries}, nil
 }
 
 func (cs *controllerServer) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequest) (*csi.DeleteSnapshotResponse, error) {
