@@ -141,7 +141,7 @@ func (f *fakeConnector) CreateVolumeFromSnapshot(ctx context.Context, zoneID, na
 	return nil, nil
 }
 
-func (f *fakeConnector) GetSnapshotByID(ctx context.Context, snapshotID ...string) (*cloud.Snapshot, error) {
+func (f *fakeConnector) GetSnapshotByID(ctx context.Context, snapshotID string) (*cloud.Snapshot, error) {
 	return f.snapshot, nil
 }
 
