@@ -3,7 +3,7 @@ package cloud
 import (
 	"fmt"
 
-	"gopkg.in/gcfg.v1"
+	gcfg "gopkg.in/gcfg.v1"
 )
 
 // Config holds CloudStack connection configuration.
