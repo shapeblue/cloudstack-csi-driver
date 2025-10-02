@@ -149,7 +149,7 @@ func (f *fakeConnector) ExpandVolume(_ context.Context, volumeID string, newSize
 	return cloud.ErrNotFound
 }
 
-func (f *fakeConnector) CreateVolumeFromSnapshot(ctx context.Context, zoneID, name, projectID, snapshotID string, sizeInGB int64) (*cloud.Volume, error) {
+func (f *fakeConnector) CreateVolumeFromSnapshot(_ context.Context, zoneID, name, projectID, snapshotID string, sizeInGB int64) (*cloud.Volume, error) {
 	vol := &cloud.Volume{
 		ID:             "fake-vol-from-snap-" + name,
 		Name:           name,
@@ -163,14 +163,31 @@ func (f *fakeConnector) CreateVolumeFromSnapshot(ctx context.Context, zoneID, na
 }
 
 func (f *fakeConnector) GetSnapshotByID(_ context.Context, snapshotID string) (*cloud.Snapshot, error) {
-	return f.snapshot, nil
+	if f.snapshot != nil && f.snapshot.ID == snapshotID {
+		return f.snapshot, nil
+	}
+	return nil, cloud.ErrNotFound
 }
 
 func (f *fakeConnector) CreateSnapshot(_ context.Context, volumeID string) (*cloud.Snapshot, error) {
-	return f.snapshot, nil
+	name := "pvc-vol-snap-1" // Always use the same name for test
+	if snap, ok := f.snapshotsByName[name]; ok && snap.VolumeID != volumeID {
+		return nil, errors.New("snapshot name conflict: already exists for a different source volume")
+	}
+	newSnap := &cloud.Snapshot{
+		ID:        "snap-" + volumeID,
+		Name:      name,
+		DomainID:  "fake-domain",
+		ZoneID:    zoneID,
+		VolumeID:  volumeID,
+		CreatedAt: "2025-07-07T16:13:06-0700",
+	}
+	f.snapshotsByName[name] = newSnap
+	f.snapshot = newSnap
+	return newSnap, nil
 }
 
-func (f *fakeConnector) DeleteSnapshot(_ context.Context, snapshotID string) error {
+func (f *fakeConnector) DeleteSnapshot(_ context.Context, _ string) error {
 	return nil
 }
 

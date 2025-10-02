@@ -402,8 +402,10 @@ func (cs *controllerServer) ListSnapshots(ctx context.Context, req *csi.ListSnap
 				},
 			}
 			entries = append(entries, entry)
+			return &csi.ListSnapshotsResponse{Entries: entries}, nil
 		}
-		return &csi.ListSnapshotsResponse{Entries: entries}, nil
+		// If not found, return empty list
+		return &csi.ListSnapshotsResponse{Entries: []*csi.ListSnapshotsResponse_Entry{}}, nil
 	}
 
 	return &csi.ListSnapshotsResponse{Entries: entries}, nil
