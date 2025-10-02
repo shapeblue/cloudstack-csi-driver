@@ -209,6 +209,7 @@ func (f *fakeConnector) ListSnapshots(_ context.Context, volumeID, snapshotID st
 		if snap, ok := f.snapshotsByID[snapshotID]; ok {
 			result = append(result, snap)
 		}
+
 		return result, nil
 	}
 	if volumeID != "" {
@@ -224,6 +225,7 @@ func (f *fakeConnector) ListSnapshots(_ context.Context, volumeID, snapshotID st
 				result = append(result, snap)
 			}
 		}
+
 		return result, nil
 	}
 	result := make([]*cloud.Snapshot, 0, len(f.snapshotsByID))

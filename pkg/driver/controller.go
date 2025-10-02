@@ -737,14 +737,14 @@ func (cs *controllerServer) ControllerGetCapabilities(ctx context.Context, req *
 					},
 				},
 			},
-			&csi.ControllerServiceCapability{
+			{
 				Type: &csi.ControllerServiceCapability_Rpc{
 					Rpc: &csi.ControllerServiceCapability_RPC{
 						Type: csi.ControllerServiceCapability_RPC_CREATE_DELETE_SNAPSHOT,
 					},
 				},
 			},
-			&csi.ControllerServiceCapability{
+			{
 				Type: &csi.ControllerServiceCapability_Rpc{
 					Rpc: &csi.ControllerServiceCapability_RPC{
 						Type: csi.ControllerServiceCapability_RPC_LIST_SNAPSHOTS,
