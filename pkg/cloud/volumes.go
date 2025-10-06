@@ -164,7 +164,7 @@ func (c *client) ExpandVolume(ctx context.Context, volumeID string, newSizeInGB 
 	return nil
 }
 
-func (c *client) CreateVolumeFromSnapshot(ctx context.Context, zoneID, name, domainID, projectID, snapshotID string, sizeInGB int64) (*Volume, error) {
+func (c *client) CreateVolumeFromSnapshot(ctx context.Context, zoneID, name, projectID, snapshotID string, sizeInGB int64) (*Volume, error) {
 	logger := klog.FromContext(ctx)
 
 	p := c.Volume.NewCreateVolumeParams()

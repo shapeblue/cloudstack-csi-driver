@@ -10,6 +10,8 @@ import (
 )
 
 // Interface is the CloudStack client interface.
+
+//nolint:interfacebloat
 type Interface interface {
 	GetNodeInfo(ctx context.Context, vmName string) (*VM, error)
 	GetVMByID(ctx context.Context, vmID string) (*VM, error)
@@ -24,10 +26,12 @@ type Interface interface {
 	DetachVolume(ctx context.Context, volumeID string) error
 	ExpandVolume(ctx context.Context, volumeID string, newSizeInGB int64) error
 
-	CreateVolumeFromSnapshot(ctx context.Context, zoneID, name, domainID, projectID, snapshotID string, sizeInGB int64) (*Volume, error)
+	CreateVolumeFromSnapshot(ctx context.Context, zoneID, name, projectID, snapshotID string, sizeInGB int64) (*Volume, error)
 	GetSnapshotByID(ctx context.Context, snapshotID string) (*Snapshot, error)
-	CreateSnapshot(ctx context.Context, volumeID string) (*Snapshot, error)
+	GetSnapshotByName(ctx context.Context, name string) (*Snapshot, error)
+	CreateSnapshot(ctx context.Context, volumeID, name string) (*Snapshot, error)
 	DeleteSnapshot(ctx context.Context, snapshotID string) error
+	ListSnapshots(ctx context.Context, volumeID, snapshotID string) ([]*Snapshot, error)
 }
 
 // Volume represents a CloudStack volume.
@@ -70,6 +74,7 @@ type VM struct {
 var (
 	ErrNotFound       = errors.New("not found")
 	ErrTooManyResults = errors.New("too many results")
+	ErrAlreadyExists  = errors.New("already exists")
 )
 
 // client is the implementation of Interface.

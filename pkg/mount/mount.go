@@ -95,6 +95,7 @@ func (m *mounter) GetDevicePath(ctx context.Context, volumeID string) (string, e
 		if path != "" {
 			devicePath = path
 			logger.V(4).Info("Device path found", "volumeID", volumeID, "devicePath", path)
+
 			return true, nil
 		}
 		m.probeVolume(ctx)
@@ -142,6 +143,7 @@ func (m *mounter) getDevicePathBySerialID(ctx context.Context, volumeID string) 
 		}
 		if !os.IsNotExist(err) {
 			logger.Error(err, "Failed to stat device path", "path", source)
+
 			return "", err
 		}
 	}
@@ -161,11 +163,13 @@ func (m *mounter) getDevicePathForXenServer(ctx context.Context, volumeID string
 			if err == nil && isBlock {
 				if m.verifyDevice(ctx, devicePath, volumeID) {
 					logger.V(4).Info("Found and verified XenServer device", "devicePath", devicePath, "volumeID", volumeID)
+
 					return devicePath, nil
 				}
 			}
 		}
 	}
+
 	return "", fmt.Errorf("device not found for volume %s", volumeID)
 }
 
@@ -182,11 +186,13 @@ func (m *mounter) getDevicePathForVMware(ctx context.Context, volumeID string) (
 			if err == nil && isBlock {
 				if m.verifyDevice(ctx, devicePath, volumeID) {
 					logger.V(4).Info("Found and verified VMware device", "devicePath", devicePath, "volumeID", volumeID)
+
 					return devicePath, nil
 				}
 			}
 		}
 	}
+
 	return "", fmt.Errorf("device not found for volume %s", volumeID)
 }
 
@@ -196,6 +202,7 @@ func (m *mounter) verifyDevice(ctx context.Context, devicePath string, volumeID 
 	size, err := m.GetBlockSizeBytes(devicePath)
 	if err != nil {
 		logger.V(4).Info("Failed to get device size", "devicePath", devicePath, "volumeID", volumeID, "error", err)
+
 		return false
 	}
 	logger.V(5).Info("Device size retrieved", "devicePath", devicePath, "volumeID", volumeID, "sizeBytes", size)
@@ -203,16 +210,19 @@ func (m *mounter) verifyDevice(ctx context.Context, devicePath string, volumeID 
 	mounted, err := m.isDeviceMounted(devicePath)
 	if err != nil {
 		logger.V(4).Info("Failed to check if device is mounted", "devicePath", devicePath, "volumeID", volumeID, "error", err)
+
 		return false
 	}
 	if mounted {
 		logger.V(4).Info("Device is already mounted", "devicePath", devicePath, "volumeID", volumeID)
+
 		return false
 	}
 
 	props, err := m.getDeviceProperties(devicePath)
 	if err != nil {
 		logger.V(4).Info("Failed to get device properties", "devicePath", devicePath, "volumeID", volumeID, "error", err)
+
 		return false
 	}
 	logger.V(5).Info("Device properties retrieved", "devicePath", devicePath, "volumeID", volumeID, "properties", props)
@@ -226,19 +236,10 @@ func (m *mounter) isDeviceMounted(devicePath string) (bool, error) {
 		if strings.Contains(err.Error(), "exit status 1") {
 			return false, nil
 		}
-		return false, err
-	}
-	return len(output) > 0, nil
-}
 
-func (m *mounter) isDeviceInUse(devicePath string) (bool, error) {
-	output, err := m.Exec.Command("lsof", devicePath).Output()
-	if err != nil {
-		if strings.Contains(err.Error(), "exit status 1") {
-			return false, nil
-		}
 		return false, err
 	}
+
 	return len(output) > 0, nil
 }
 
@@ -377,13 +378,13 @@ func (m *mounter) GetStatistics(volumePath string) (volumeStatistics, error) {
 	}
 
 	volStats := volumeStatistics{
-		AvailableBytes: int64(statfs.Bavail) * int64(statfs.Bsize),                         //nolint:unconvert
-		TotalBytes:     int64(statfs.Blocks) * int64(statfs.Bsize),                         //nolint:unconvert
-		UsedBytes:      (int64(statfs.Blocks) - int64(statfs.Bfree)) * int64(statfs.Bsize), //nolint:unconvert
+		AvailableBytes: int64(statfs.Bavail) * int64(statfs.Bsize),                         //nolint:gosec,unconvert
+		TotalBytes:     int64(statfs.Blocks) * int64(statfs.Bsize),                         //nolint:gosec,unconvert
+		UsedBytes:      (int64(statfs.Blocks) - int64(statfs.Bfree)) * int64(statfs.Bsize), //nolint:gosec,unconvert
 
-		AvailableInodes: int64(statfs.Ffree),
-		TotalInodes:     int64(statfs.Files),
-		UsedInodes:      int64(statfs.Files) - int64(statfs.Ffree),
+		AvailableInodes: int64(statfs.Ffree),                       //nolint:gosec
+		TotalInodes:     int64(statfs.Files),                       //nolint:gosec
+		UsedInodes:      int64(statfs.Files) - int64(statfs.Ffree), //nolint:gosec
 	}
 
 	return volStats, nil
