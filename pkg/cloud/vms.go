@@ -29,6 +29,7 @@ func (c *client) GetVMByID(ctx context.Context, vmID string) (*VM, error) {
 	}
 	vm := l.VirtualMachines[0]
 	logger.V(2).Info("Returning VM", "vmID", vm.Id, "zoneID", vm.Zoneid)
+
 	return &VM{
 		ID:     vm.Id,
 		ZoneID: vm.Zoneid,
