@@ -87,9 +87,9 @@ jobs:
           echo "---" >> manifest.yaml
           cat deploy/k8s/csidriver.yaml >> manifest.yaml
           echo "---" >> manifest.yaml
-          sed -E "s|image: +cloudstack-csi-driver|image: ${REGISTRY_NAME}/cloudstack-csi-driver:${VERSION}|" deploy/k8s/controller-deployment.yaml >> manifest.yaml
+          sed -E "s|(image: +${REGISTRY_NAME}/cloudstack-csi-driver)(:[^ ]+)?|\\1:${VERSION}|" deploy/k8s/controller-deployment.yaml >> manifest.yaml
           echo "---" >> manifest.yaml
-          sed -E "s|image: +cloudstack-csi-driver|image: ${REGISTRY_NAME}/cloudstack-csi-driver:${VERSION}|" deploy/k8s/node-daemonset.yaml >> manifest.yaml
+          sed -E "s|(image: +${REGISTRY_NAME}/cloudstack-csi-driver)(:[^ ]+)?|\\1:${VERSION}|" deploy/k8s/node-daemonset.yaml >> manifest.yaml
           echo "---" >> manifest.yaml
           cat deploy/k8s/volume-snapshot-class.yaml >> manifest.yaml
 
