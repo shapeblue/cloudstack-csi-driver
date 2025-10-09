@@ -36,7 +36,7 @@ spec:
 
       containers:
         - name: cloudstack-csi-node
-          image: cloudstack-csi-driver
+          image: ghcr.io/cloudstack/cloudstack-csi-driver:main
           imagePullPolicy: IfNotPresent
           args:
             - "node"
@@ -64,6 +64,8 @@ spec:
               mountPath: /dev
             - name: cloud-init-dir
               mountPath: /run/cloud-init/
+            - name: sys-dir
+              mountPath: /sys  
             # Comment the above 2 lines and uncomment the next 2 lines for Ignition support
             # - name: ignition-dir
             #   mountPath: /run/metadata
@@ -177,6 +179,10 @@ spec:
           hostPath:
             path: /run/cloud-init/
             type: Directory
+        - name: sys-dir
+          hostPath:
+            path: /sys
+            type: Directory    
         # Comment the above 4 lines and uncomment the next 4 lines for Ignition support
         # - name: ignition-dir
         #   hostPath:

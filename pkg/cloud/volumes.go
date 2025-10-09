@@ -1,3 +1,22 @@
+//
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+//
+
 package cloud
 
 import (
@@ -29,6 +48,8 @@ func (c *client) listVolumes(p *cloudstack.ListVolumesParams) (*Volume, error) {
 		Name:             vol.Name,
 		Size:             vol.Size,
 		DiskOfferingID:   vol.Diskofferingid,
+		DomainID:         vol.Domainid,
+		ProjectID:        vol.Projectid,
 		ZoneID:           vol.Zoneid,
 		VirtualMachineID: vol.Virtualmachineid,
 		DeviceID:         strconv.FormatInt(vol.Deviceid, 10),
@@ -41,8 +62,12 @@ func (c *client) GetVolumeByID(ctx context.Context, volumeID string) (*Volume, e
 	logger := klog.FromContext(ctx)
 	p := c.Volume.NewListVolumesParams()
 	p.SetId(volumeID)
+	if c.projectID != "" {
+		p.SetProjectid(c.projectID)
+	}
 	logger.V(2).Info("CloudStack API call", "command", "ListVolumes", "params", map[string]string{
-		"id": volumeID,
+		"id":        volumeID,
+		"projectid": c.projectID,
 	})
 
 	return c.listVolumes(p)
@@ -66,11 +91,15 @@ func (c *client) CreateVolume(ctx context.Context, diskOfferingID, zoneID, name 
 	p.SetZoneid(zoneID)
 	p.SetName(name)
 	p.SetSize(sizeInGB)
+	if c.projectID != "" {
+		p.SetProjectid(c.projectID)
+	}
 	logger.V(2).Info("CloudStack API call", "command", "CreateVolume", "params", map[string]string{
 		"diskofferingid": diskOfferingID,
 		"zoneid":         zoneID,
 		"name":           name,
 		"size":           strconv.FormatInt(sizeInGB, 10),
+		"projectid":      c.projectID,
 	})
 	vol, err := c.Volume.CreateVolume(p)
 	if err != nil {
@@ -152,4 +181,45 @@ func (c *client) ExpandVolume(ctx context.Context, volumeID string, newSizeInGB 
 	}
 
 	return nil
+}
+
+func (c *client) CreateVolumeFromSnapshot(ctx context.Context, zoneID, name, projectID, snapshotID string, sizeInGB int64) (*Volume, error) {
+	logger := klog.FromContext(ctx)
+
+	p := c.Volume.NewCreateVolumeParams()
+	p.SetZoneid(zoneID)
+	if projectID != "" {
+		p.SetProjectid(projectID)
+	}
+	p.SetName(name)
+	p.SetSize(sizeInGB)
+	p.SetSnapshotid(snapshotID)
+
+	logger.V(2).Info("CloudStack API call", "command", "CreateVolume", "params", map[string]string{
+		"name":       name,
+		"size":       strconv.FormatInt(sizeInGB, 10),
+		"snapshotid": snapshotID,
+		"projectid":  projectID,
+		"zoneid":     zoneID,
+	})
+	// Execute the API call to create volume from snapshot
+	vol, err := c.Volume.CreateVolume(p)
+	if err != nil {
+		// Handle the error accordingly
+		return nil, fmt.Errorf("failed to create volume from snapshot '%s': %w", snapshotID, err)
+	}
+
+	v := Volume{
+		ID:               vol.Id,
+		Name:             vol.Name,
+		Size:             vol.Size,
+		DiskOfferingID:   vol.Diskofferingid,
+		DomainID:         vol.Domainid,
+		ProjectID:        vol.Projectid,
+		ZoneID:           vol.Zoneid,
+		VirtualMachineID: vol.Virtualmachineid,
+		DeviceID:         strconv.FormatInt(vol.Deviceid, 10),
+	}
+
+	return &v, nil
 }

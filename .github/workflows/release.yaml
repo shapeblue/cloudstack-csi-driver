@@ -14,7 +14,7 @@ env:
 jobs:
   push:
     name: Push images
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Check out code
@@ -67,7 +67,7 @@ jobs:
 
   release:
     name: Release
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
 
     # Run only if previous job has succeeded
     needs: [push]
@@ -87,9 +87,11 @@ jobs:
           echo "---" >> manifest.yaml
           cat deploy/k8s/csidriver.yaml >> manifest.yaml
           echo "---" >> manifest.yaml
-          sed -E "s|image: +cloudstack-csi-driver|image: ${REGISTRY_NAME}/cloudstack-csi-driver:${VERSION}|" deploy/k8s/controller-deployment.yaml >> manifest.yaml
+          sed -E "s|(image: +${REGISTRY_NAME}/cloudstack-csi-driver)(:[^ ]+)?|\\1:${VERSION}|" deploy/k8s/controller-deployment.yaml >> manifest.yaml
           echo "---" >> manifest.yaml
-          sed -E "s|image: +cloudstack-csi-driver|image: ${REGISTRY_NAME}/cloudstack-csi-driver:${VERSION}|" deploy/k8s/node-daemonset.yaml >> manifest.yaml
+          sed -E "s|(image: +${REGISTRY_NAME}/cloudstack-csi-driver)(:[^ ]+)?|\\1:${VERSION}|" deploy/k8s/node-daemonset.yaml >> manifest.yaml
+          echo "---" >> manifest.yaml
+          cat deploy/k8s/volume-snapshot-class.yaml >> manifest.yaml
 
       - name: Create Release
         id: create_release
@@ -101,6 +103,16 @@ jobs:
           release_name: ${{ github.ref }}
           draft: false
           prerelease: false
+
+      - name: Upload Snapshot CRDs Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: deploy/k8s/00-snapshot-crds.yaml
+          asset_name: snapshot-crds.yaml
+          asset_content_type: application/x-yaml
 
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1

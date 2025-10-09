@@ -1,9 +1,29 @@
+//
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+//
+
 // Package fake provides a fake implementation of the cloud
 // connector interface, to be used in tests.
 package fake
 
 import (
 	"context"
+	"errors"
 
 	"github.com/hashicorp/go-uuid"
 
@@ -14,9 +34,11 @@ import (
 const zoneID = "a1887604-237c-4212-a9cd-94620b7880fa"
 
 type fakeConnector struct {
-	node          *cloud.VM
-	volumesByID   map[string]cloud.Volume
-	volumesByName map[string]cloud.Volume
+	node            *cloud.VM
+	volumesByID     map[string]cloud.Volume
+	volumesByName   map[string]cloud.Volume
+	snapshotsByID   map[string]*cloud.Snapshot
+	snapshotsByName map[string][]*cloud.Snapshot
 }
 
 // New returns a new fake implementation of the
@@ -36,10 +58,15 @@ func New() cloud.Interface {
 		ZoneID: zoneID,
 	}
 
+	snapshotsByID := make(map[string]*cloud.Snapshot)
+	snapshotsByName := make(map[string][]*cloud.Snapshot)
+
 	return &fakeConnector{
-		node:          node,
-		volumesByID:   map[string]cloud.Volume{volume.ID: volume},
-		volumesByName: map[string]cloud.Volume{volume.Name: volume},
+		node:            node,
+		volumesByID:     map[string]cloud.Volume{volume.ID: volume},
+		volumesByName:   map[string]cloud.Volume{volume.Name: volume},
+		snapshotsByID:   snapshotsByID,
+		snapshotsByName: snapshotsByName,
 	}
 }
 
@@ -60,6 +87,9 @@ func (f *fakeConnector) ListZonesID(_ context.Context) ([]string, error) {
 }
 
 func (f *fakeConnector) GetVolumeByID(_ context.Context, volumeID string) (*cloud.Volume, error) {
+	if volumeID == "" {
+		return nil, errors.New("invalid volume ID: empty string")
+	}
 	vol, ok := f.volumesByID[volumeID]
 	if ok {
 		return &vol, nil
@@ -69,6 +99,9 @@ func (f *fakeConnector) GetVolumeByID(_ context.Context, volumeID string) (*clou
 }
 
 func (f *fakeConnector) GetVolumeByName(_ context.Context, name string) (*cloud.Volume, error) {
+	if name == "" {
+		return nil, errors.New("invalid volume name: empty string")
+	}
 	vol, ok := f.volumesByName[name]
 	if ok {
 		return &vol, nil
@@ -123,4 +156,122 @@ func (f *fakeConnector) ExpandVolume(_ context.Context, volumeID string, newSize
 	}
 
 	return cloud.ErrNotFound
+}
+
+func (f *fakeConnector) CreateVolumeFromSnapshot(_ context.Context, zoneID, name, _, _ string, sizeInGB int64) (*cloud.Volume, error) {
+	vol := &cloud.Volume{
+		ID:             "fake-vol-from-snap-" + name,
+		Name:           name,
+		Size:           util.GigaBytesToBytes(sizeInGB),
+		DiskOfferingID: "fake-disk-offering",
+		ZoneID:         zoneID,
+	}
+	f.volumesByID[vol.ID] = *vol
+	f.volumesByName[vol.Name] = *vol
+
+	return vol, nil
+}
+
+func (f *fakeConnector) CreateSnapshot(_ context.Context, volumeID, name string) (*cloud.Snapshot, error) {
+	if name == "" {
+		return nil, errors.New("invalid snapshot name: empty string")
+	}
+	for _, snap := range f.snapshotsByName[name] {
+		if snap.VolumeID == volumeID {
+			// Allow multiple snapshots with the same name for the same volume
+			continue
+		}
+
+		// Name conflict: same name, different volume
+		return nil, cloud.ErrAlreadyExists
+	}
+	id, _ := uuid.GenerateUUID()
+	newSnap := &cloud.Snapshot{
+		ID:        id,
+		Name:      name,
+		DomainID:  "fake-domain",
+		ZoneID:    zoneID,
+		VolumeID:  volumeID,
+		CreatedAt: "2025-07-07T16:13:06-0700",
+	}
+	f.snapshotsByID[newSnap.ID] = newSnap
+	f.snapshotsByName[name] = append(f.snapshotsByName[name], newSnap)
+
+	return newSnap, nil
+}
+
+func (f *fakeConnector) GetSnapshotByID(_ context.Context, snapshotID string) (*cloud.Snapshot, error) {
+	snap, ok := f.snapshotsByID[snapshotID]
+	if ok {
+		return snap, nil
+	}
+
+	return nil, cloud.ErrNotFound
+}
+
+func (f *fakeConnector) GetSnapshotByName(_ context.Context, name string) (*cloud.Snapshot, error) {
+	if name == "" {
+		return nil, errors.New("invalid snapshot name: empty string")
+	}
+	snaps, ok := f.snapshotsByName[name]
+	if ok && len(snaps) > 0 {
+		return snaps[0], nil // Return the first for compatibility
+	}
+
+	return nil, cloud.ErrNotFound
+}
+
+// ListSnapshots returns all matching snapshots; pagination must be handled by the controller.
+func (f *fakeConnector) ListSnapshots(_ context.Context, volumeID, snapshotID string) ([]*cloud.Snapshot, error) {
+	if snapshotID != "" {
+		result := make([]*cloud.Snapshot, 0, 1)
+		if snap, ok := f.snapshotsByID[snapshotID]; ok {
+			result = append(result, snap)
+		}
+
+		return result, nil
+	}
+	if volumeID != "" {
+		count := 0
+		for _, snap := range f.snapshotsByID {
+			if snap.VolumeID == volumeID {
+				count++
+			}
+		}
+		result := make([]*cloud.Snapshot, 0, count)
+		for _, snap := range f.snapshotsByID {
+			if snap.VolumeID == volumeID {
+				result = append(result, snap)
+			}
+		}
+
+		return result, nil
+	}
+	result := make([]*cloud.Snapshot, 0, len(f.snapshotsByID))
+	for _, snap := range f.snapshotsByID {
+		result = append(result, snap)
+	}
+
+	return result, nil
+}
+
+func (f *fakeConnector) DeleteSnapshot(_ context.Context, snapshotID string) error {
+	snap, ok := f.snapshotsByID[snapshotID]
+	if !ok {
+		return cloud.ErrNotFound
+	}
+
+	delete(f.snapshotsByID, snapshotID)
+
+	name := snap.Name
+	snaps := f.snapshotsByName[name]
+	for i, s := range snaps {
+		if s.ID == snapshotID {
+			f.snapshotsByName[name] = append(snaps[:i], snaps[i+1:]...)
+
+			break
+		}
+	}
+
+	return nil
 }

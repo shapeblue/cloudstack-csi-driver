@@ -25,14 +25,16 @@ spec:
       serviceAccountName: cloudstack-csi-controller
       affinity:
         podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
-              matchExpressions:
-              - key: "app.kubernetes.io/name"
-                operator: In
-                values:
-                - cloudstack-csi-controller
-            topologyKey: "kubernetes.io/hostname"
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: "app.kubernetes.io/name"
+                  operator: In
+                  values:
+                  - cloudstack-csi-controller
+              topologyKey: "kubernetes.io/hostname"
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
@@ -59,7 +61,7 @@ spec:
 
       containers:
         - name: cloudstack-csi-controller
-          image: cloudstack-csi-driver
+          image: ghcr.io/cloudstack/cloudstack-csi-driver:main
           imagePullPolicy: Always
           args:
             - "controller"
@@ -176,8 +178,45 @@ spec:
               type: RuntimeDefault
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
-
+        - name: csi-snapshotter
+          image: registry.k8s.io/sig-storage/csi-snapshotter:v6.3.0
+          args:
+            - "--v=5"
+            - "--csi-address=$(CSI_ADDRESS)"
+            - "--leader-election"
+            - "--leader-election-lease-duration=30s"
+            - "--leader-election-renew-deadline=20s"
+            - "--leader-election-retry-period=10s"
+          env:
+            - name: CSI_ADDRESS
+              value: /var/lib/csi/sockets/pluginproxy/csi.sock
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /var/lib/csi/sockets/pluginproxy/
+          resources:
+            limits:
+              cpu: 400m
+              memory: 200Mi
+            requests:
+              cpu: 10m
+              memory: 20Mi
+        - name: snapshot-controller
+          image: registry.k8s.io/sig-storage/snapshot-controller:v6.3.0
+          args:
+            - "--v=5"
+            - "--leader-election"
+            - "--leader-election-lease-duration=30s"
+            - "--leader-election-renew-deadline=20s"
+            - "--leader-election-retry-period=10s"
+          resources:
+            limits:
+              cpu: 400m
+              memory: 200Mi
+            requests:
+              cpu: 10m
+              memory: 20Mi
         - name: liveness-probe
+          imagePullPolicy: IfNotPresent
           image: registry.k8s.io/sig-storage/livenessprobe:v2.12.0
           args:
             - "--v=4"

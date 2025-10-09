@@ -1,3 +1,22 @@
+//
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+//
+
 // Package mount provides utilities to detect,
 // format and mount storage devices.
 package mount
@@ -79,20 +98,22 @@ func (m *mounter) GetBlockSizeBytes(devicePath string) (int64, error) {
 }
 
 func (m *mounter) GetDevicePath(ctx context.Context, volumeID string) (string, error) {
+	logger := klog.FromContext(ctx)
 	backoff := wait.Backoff{
-		Duration: 1 * time.Second,
-		Factor:   1.1,
-		Steps:    15,
+		Duration: 2 * time.Second,
+		Factor:   1.5,
+		Steps:    20,
 	}
 
 	var devicePath string
 	err := wait.ExponentialBackoffWithContext(ctx, backoff, func(context.Context) (bool, error) {
-		path, err := m.getDevicePathBySerialID(volumeID)
+		path, err := m.getDevicePathBySerialID(ctx, volumeID)
 		if err != nil {
 			return false, err
 		}
 		if path != "" {
 			devicePath = path
+			logger.V(4).Info("Device path found", "volumeID", volumeID, "devicePath", path)
 
 			return true, nil
 		}
@@ -110,7 +131,27 @@ func (m *mounter) GetDevicePath(ctx context.Context, volumeID string) (string, e
 	return devicePath, nil
 }
 
-func (m *mounter) getDevicePathBySerialID(volumeID string) (string, error) {
+func (m *mounter) getDevicePathBySerialID(ctx context.Context, volumeID string) (string, error) {
+	logger := klog.FromContext(ctx)
+
+	// First try XenServer device paths
+	xenDevicePath, err := m.getDevicePathForXenServer(ctx, volumeID)
+	if err != nil {
+		logger.V(4).Info("Failed to get XenServer device path", "volumeID", volumeID, "error", err)
+	}
+	if xenDevicePath != "" {
+		return xenDevicePath, nil
+	}
+
+	// Try VMware device paths
+	vmwareDevicePath, err := m.getDevicePathForVMware(ctx, volumeID)
+	if err != nil {
+		logger.V(4).Info("Failed to get VMware device path", "volumeID", volumeID, "error", err)
+	}
+	if vmwareDevicePath != "" {
+		return vmwareDevicePath, nil
+	}
+	// Fall back to standard device paths (for KVM)
 	sourcePathPrefixes := []string{"virtio-", "scsi-", "scsi-0QEMU_QEMU_HARDDISK_"}
 	serial := diskUUIDToSerial(volumeID)
 	for _, prefix := range sourcePathPrefixes {
@@ -120,11 +161,125 @@ func (m *mounter) getDevicePathBySerialID(volumeID string) (string, error) {
 			return source, nil
 		}
 		if !os.IsNotExist(err) {
+			logger.Error(err, "Failed to stat device path", "path", source)
+
 			return "", err
 		}
 	}
 
 	return "", nil
+}
+
+func (m *mounter) getDevicePathForXenServer(ctx context.Context, volumeID string) (string, error) {
+	logger := klog.FromContext(ctx)
+
+	for i := 'b'; i <= 'z'; i++ {
+		devicePath := fmt.Sprintf("/dev/xvd%c", i)
+		logger.V(5).Info("Checking XenServer device path", "devicePath", devicePath, "volumeID", volumeID)
+
+		if _, err := os.Stat(devicePath); err == nil {
+			isBlock, err := m.IsBlockDevice(devicePath)
+			if err == nil && isBlock {
+				if m.verifyDevice(ctx, devicePath, volumeID) {
+					logger.V(4).Info("Found and verified XenServer device", "devicePath", devicePath, "volumeID", volumeID)
+
+					return devicePath, nil
+				}
+			}
+		}
+	}
+
+	return "", fmt.Errorf("device not found for volume %s", volumeID)
+}
+
+func (m *mounter) getDevicePathForVMware(ctx context.Context, volumeID string) (string, error) {
+	logger := klog.FromContext(ctx)
+
+	// Loop through /dev/sdb to /dev/sdz (/dev/sda -> the root disk)
+	for i := 'b'; i <= 'z'; i++ {
+		devicePath := fmt.Sprintf("/dev/sd%c", i)
+		logger.V(5).Info("Checking VMware device path", "devicePath", devicePath, "volumeID", volumeID)
+
+		if _, err := os.Stat(devicePath); err == nil {
+			isBlock, err := m.IsBlockDevice(devicePath)
+			if err == nil && isBlock {
+				if m.verifyDevice(ctx, devicePath, volumeID) {
+					logger.V(4).Info("Found and verified VMware device", "devicePath", devicePath, "volumeID", volumeID)
+
+					return devicePath, nil
+				}
+			}
+		}
+	}
+
+	return "", fmt.Errorf("device not found for volume %s", volumeID)
+}
+
+func (m *mounter) verifyDevice(ctx context.Context, devicePath string, volumeID string) bool {
+	logger := klog.FromContext(ctx)
+
+	size, err := m.GetBlockSizeBytes(devicePath)
+	if err != nil {
+		logger.V(4).Info("Failed to get device size", "devicePath", devicePath, "volumeID", volumeID, "error", err)
+
+		return false
+	}
+	logger.V(5).Info("Device size retrieved", "devicePath", devicePath, "volumeID", volumeID, "sizeBytes", size)
+
+	mounted, err := m.isDeviceMounted(devicePath)
+	if err != nil {
+		logger.V(4).Info("Failed to check if device is mounted", "devicePath", devicePath, "volumeID", volumeID, "error", err)
+
+		return false
+	}
+	if mounted {
+		logger.V(4).Info("Device is already mounted", "devicePath", devicePath, "volumeID", volumeID)
+
+		return false
+	}
+
+	props, err := m.getDeviceProperties(devicePath)
+	if err != nil {
+		logger.V(4).Info("Failed to get device properties", "devicePath", devicePath, "volumeID", volumeID, "error", err)
+
+		return false
+	}
+	logger.V(5).Info("Device properties retrieved", "devicePath", devicePath, "volumeID", volumeID, "properties", props)
+
+	return true
+}
+
+func (m *mounter) isDeviceMounted(devicePath string) (bool, error) {
+	output, err := m.Exec.Command("grep", devicePath, "/proc/mounts").Output()
+	if err != nil {
+		if strings.Contains(err.Error(), "exit status 1") {
+			return false, nil
+		}
+
+		return false, err
+	}
+
+	return len(output) > 0, nil
+}
+
+func (m *mounter) getDeviceProperties(devicePath string) (map[string]string, error) {
+	output, err := m.Exec.Command("udevadm", "info", "--query=property", devicePath).Output()
+	if err != nil {
+		return nil, err
+	}
+
+	props := make(map[string]string)
+	for _, line := range strings.Split(string(output), "\n") {
+		if line == "" {
+			continue
+		}
+		parts := strings.Split(line, "=")
+		if len(parts) == 2 {
+			props[parts[0]] = parts[1]
+		}
+	}
+
+	return props, nil
 }
 
 func (m *mounter) probeVolume(ctx context.Context) {
@@ -242,13 +397,13 @@ func (m *mounter) GetStatistics(volumePath string) (volumeStatistics, error) {
 	}
 
 	volStats := volumeStatistics{
-		AvailableBytes: int64(statfs.Bavail) * int64(statfs.Bsize),                         //nolint:unconvert
-		TotalBytes:     int64(statfs.Blocks) * int64(statfs.Bsize),                         //nolint:unconvert
-		UsedBytes:      (int64(statfs.Blocks) - int64(statfs.Bfree)) * int64(statfs.Bsize), //nolint:unconvert
+		AvailableBytes: int64(statfs.Bavail) * int64(statfs.Bsize),                         //nolint:gosec,unconvert
+		TotalBytes:     int64(statfs.Blocks) * int64(statfs.Bsize),                         //nolint:gosec,unconvert
+		UsedBytes:      (int64(statfs.Blocks) - int64(statfs.Bfree)) * int64(statfs.Bsize), //nolint:gosec,unconvert
 
-		AvailableInodes: int64(statfs.Ffree),
-		TotalInodes:     int64(statfs.Files),
-		UsedInodes:      int64(statfs.Files) - int64(statfs.Ffree),
+		AvailableInodes: int64(statfs.Ffree),                       //nolint:gosec
+		TotalInodes:     int64(statfs.Files),                       //nolint:gosec
+		UsedInodes:      int64(statfs.Files) - int64(statfs.Ffree), //nolint:gosec
 	}
 
 	return volStats, nil
