@@ -20,6 +20,12 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v4
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Cache
         uses: actions/cache@v4
         with:
@@ -28,9 +34,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Build container images
-        run: make container
-
       - name: Log into registry
         uses: docker/login-action@v3
         with:
@@ -38,12 +41,32 @@ jobs:
           username: ${{github.actor}}
           password: ${{secrets.GITHUB_TOKEN}}
 
+      - name: Set build variables
+        id: build_vars
+        run: |
+          REV=$(git describe --long --tags --match='v*' --dirty 2>/dev/null || git rev-list -n1 HEAD)
+          GIT_COMMIT=$(git rev-parse HEAD)
+          BUILD_DATE=$(date -u -Iseconds)
+          PKG=github.com/cloudstack/cloudstack-csi-driver
+          LDFLAGS="-s -w -X ${PKG}/pkg/driver.driverVersion=${REV} -X ${PKG}/pkg/driver.gitCommit=${GIT_COMMIT} -X ${PKG}/pkg/driver.buildDate=${BUILD_DATE}"
+          
+          echo "rev=${REV}" >> $GITHUB_OUTPUT
+          echo "git_commit=${GIT_COMMIT}" >> $GITHUB_OUTPUT
+          echo "build_date=${BUILD_DATE}" >> $GITHUB_OUTPUT
+          echo "ldflags=${LDFLAGS}" >> $GITHUB_OUTPUT
+
       - name: Push main
         if: github.ref == 'refs/heads/main'
         run: |
           for img in $IMAGES; do
-              docker tag ${img} ${REGISTRY_NAME}/${img}:main
-              docker push ${REGISTRY_NAME}/${img}:main
+              docker buildx build \
+                --platform linux/amd64,linux/arm64 \
+                --file ./cmd/${img}/Dockerfile \
+                --build-arg LDFLAGS="${{ steps.build_vars.outputs.ldflags }}" \
+                --tag ${REGISTRY_NAME}/${img}:main \
+                --label org.opencontainers.image.revision=${{ steps.build_vars.outputs.git_commit }} \
+                --push \
+                .
           done
 
       - name: Push tagged release
@@ -53,16 +76,39 @@ jobs:
           VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,' | sed -e 's/^v//')
 
           for img in $IMAGES; do
-              docker tag ${img} ${REGISTRY_NAME}/${img}:${VERSION}
-              docker push ${REGISTRY_NAME}/${img}:${VERSION}
+              docker buildx build \
+                --platform linux/amd64,linux/arm64 \
+                --file ./cmd/${img}/Dockerfile \
+                --build-arg LDFLAGS="${{ steps.build_vars.outputs.ldflags }}" \
+                --tag ${REGISTRY_NAME}/${img}:${VERSION} \
+                --label org.opencontainers.image.revision=${{ steps.build_vars.outputs.git_commit }} \
+                --push \
+                .
           done
 
-      - name: Upload cloudstack-csi-sc-syncer artifact
+      - name: Set up Go
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Build syncer binaries for upload
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          mkdir -p bin
+          
+          # Build for AMD64
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "${{ steps.build_vars.outputs.ldflags }}" -o ./bin/cloudstack-csi-sc-syncer-linux-amd64 ./cmd/cloudstack-csi-sc-syncer
+          
+          # Build for ARM64
+          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "${{ steps.build_vars.outputs.ldflags }}" -o ./bin/cloudstack-csi-sc-syncer-linux-arm64 ./cmd/cloudstack-csi-sc-syncer
+
+      - name: Upload cloudstack-csi-sc-syncer artifacts
         if: startsWith(github.ref, 'refs/tags/v')
         uses: actions/upload-artifact@v4
         with:
           name: bin
-          path: bin/cloudstack-csi-sc-syncer
+          path: bin/cloudstack-csi-sc-syncer-*
           retention-days: 1
 
   release:
@@ -124,20 +170,30 @@ jobs:
           asset_name: manifest.yaml
           asset_content_type: application/x-yaml
 
-      - name: Download cloudstack-csi-sc-syncer artifact
+      - name: Download cloudstack-csi-sc-syncer artifacts
         uses: actions/download-artifact@v4
         with:
           name: bin
           path: bin
 
-      - run: ls -l
+      - run: ls -l bin
 
-      - name: Upload cloudstack-csi-sc-syncer asset
+      - name: Upload cloudstack-csi-sc-syncer AMD64 asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: bin/cloudstack-csi-sc-syncer
-          asset_name: cloudstack-csi-sc-syncer
+          asset_path: bin/cloudstack-csi-sc-syncer-linux-amd64
+          asset_name: cloudstack-csi-sc-syncer-linux-amd64
+          asset_content_type: application/x-executable
+
+      - name: Upload cloudstack-csi-sc-syncer ARM64 asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: bin/cloudstack-csi-sc-syncer-linux-arm64
+          asset_name: cloudstack-csi-sc-syncer-linux-arm64
           asset_content_type: application/x-executable
