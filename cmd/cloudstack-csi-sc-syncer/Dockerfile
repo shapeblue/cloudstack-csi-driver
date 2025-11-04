@@ -17,7 +17,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
     go build -ldflags "${LDFLAGS}" -o cloudstack-csi-sc-syncer ./cmd/cloudstack-csi-sc-syncer
 
-FROM alpine:3.18
+FROM alpine:3.21
 
 LABEL \
     org.opencontainers.image.description="CloudStack disk offering to Kubernetes storage class syncer" \
