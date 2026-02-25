@@ -280,7 +280,7 @@ node:
     annotations: {}
     automountServiceAccountToken: true
   # Metadata source to try to find instance ID.
-  # Possible values 'cloud-init' & 'ignition'
+  # Possible values 'cloud-init' & 'ignition' or ''
   metadataSource: ignition
   # The maximum number of volumes that can be attached to a node
   volumeAttachLimit:
