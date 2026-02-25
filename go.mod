@@ -1,8 +1,6 @@
 module github.com/cloudstack/cloudstack-csi-driver
 
-go 1.23
-
-toolchain go1.23.5
+go 1.24.0
 
 require (
 	github.com/apache/cloudstack-go/v2 v2.16.1
@@ -11,8 +9,8 @@ require (
 	github.com/kubernetes-csi/csi-lib-utils v0.17.0
 	github.com/kubernetes-csi/csi-test/v5 v5.2.0
 	github.com/spf13/pflag v1.0.5
-	golang.org/x/sys v0.20.0
-	golang.org/x/text v0.16.0
+	golang.org/x/sys v0.40.0
+	golang.org/x/text v0.34.0
 	google.golang.org/grpc v1.65.0
 	google.golang.org/protobuf v1.34.1
 	gopkg.in/gcfg.v1 v1.2.3
@@ -64,11 +62,11 @@ require (
 	github.com/spf13/cobra v1.7.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
-	golang.org/x/net v0.25.0 // indirect
+	golang.org/x/net v0.49.0 // indirect
 	golang.org/x/oauth2 v0.20.0 // indirect
-	golang.org/x/term v0.20.0 // indirect
+	golang.org/x/term v0.39.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
-	golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d // indirect
+	golang.org/x/tools v0.41.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240528184218-531527333157 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
