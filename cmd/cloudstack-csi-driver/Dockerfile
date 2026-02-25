@@ -17,7 +17,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
     go build -ldflags "${LDFLAGS}" -o cloudstack-csi-driver ./cmd/cloudstack-csi-driver
 
-FROM alpine:3.21
+FROM alpine:3.23
 
 LABEL \
     org.opencontainers.image.description="CloudStack CSI driver" \
