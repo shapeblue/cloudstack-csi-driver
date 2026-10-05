@@ -1,4 +1,4 @@
-## CRD for VolumeSnapshotClass from https://github.com/kubernetes-csi/external-snapshotter/blob/v8.3.0/client/config/crd/groupsnapshot.storage.k8s.io_volumegroupsnapshotclasses.yaml
+## CRD from https://github.com/kubernetes-csi/external-snapshotter/blob/v8.6.0/client/config/crd/snapshot.storage.k8s.io_volumesnapshotclasses.yaml
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -142,8 +142,8 @@ status:
     plural: ""
   conditions: []
   storedVersions: []
+## CRD from https://github.com/kubernetes-csi/external-snapshotter/blob/v8.6.0/client/config/crd/snapshot.storage.k8s.io_volumesnapshotcontents.yaml
 ---
-## VolumeSnapshotContent CRD - https://github.com/kubernetes-csi/external-snapshotter/blob/v8.3.0/client/config/crd/snapshot.storage.k8s.io_volumesnapshotcontents.yaml
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -600,8 +600,8 @@ status:
     plural: ""
   conditions: []
   storedVersions: []
+## CRD from https://github.com/kubernetes-csi/external-snapshotter/blob/v8.6.0/client/config/crd/snapshot.storage.k8s.io_volumesnapshots.yaml
 ---
-## VolumeSnapshot CRD - https://github.com/kubernetes-csi/external-snapshotter/blob/v8.3.0/client/config/crd/snapshot.storage.k8s.io_volumesnapshots.yaml
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:

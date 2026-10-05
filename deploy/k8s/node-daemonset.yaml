@@ -95,7 +95,7 @@ spec:
             privileged: true
 
         - name: node-driver-registrar
-          image: registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.10.1
+          image: registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.18.0
           imagePullPolicy: IfNotPresent
           args:
             - "--csi-address=$(ADDRESS)"
@@ -136,7 +136,7 @@ spec:
             allowPrivilegeEscalation: false
 
         - name: liveness-probe
-          image: registry.k8s.io/sig-storage/livenessprobe:v2.12.0
+          image: registry.k8s.io/sig-storage/livenessprobe:v2.20.0
           imagePullPolicy: IfNotPresent
           args:
             - "--v=4"
