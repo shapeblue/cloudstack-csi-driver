@@ -69,7 +69,6 @@ func NewControllerServer(connector cloud.Interface) csi.ControllerServer {
 	}
 }
 
-//nolint:gocognit
 func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
 	logger := klog.FromContext(ctx)
 	logger.V(6).Info("CreateVolume: called", "args", *req)
@@ -148,45 +147,8 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	// If creating from snapshot, get the snapshot size
-	var snapshotSizeGiB int64
 	if snapshotID != "" {
-		logger.Info("Creating volume from snapshot", "snapshotID", snapshotID)
-		// Call the cloud connector's CreateVolumeFromSnapshot if implemented
-		printVolumeAsJSON(req)
-		snapshot, err := cs.connector.GetSnapshotByID(ctx, snapshotID)
-		if errors.Is(err, cloud.ErrNotFound) {
-			return nil, status.Errorf(codes.NotFound, "Snapshot %v not found", snapshotID)
-		} else if err != nil {
-			// Error with CloudStack
-			return nil, status.Errorf(codes.Internal, "Error %v", err)
-		}
-
-		logger.Info("PVC created with", "size", sizeInGB)
-		snapshotSizeGiB = util.RoundUpBytesToGB(snapshot.Size)
-		if snapshotSizeGiB > sizeInGB {
-			logger.Info("Snapshot size is greater than the request PVC, creating volume from snapshot of size", "snapshot size:", snapshotSizeGiB)
-			sizeInGB = snapshotSizeGiB
-		}
-
-		volFromSnapshot, err := cs.connector.CreateVolumeFromSnapshot(ctx, snapshot.ZoneID, name, snapshot.ProjectID, snapshotID, sizeInGB)
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, "Cannot create volume from snapshot %s: %v", snapshotID, err.Error())
-		}
-
-		resp := &csi.CreateVolumeResponse{
-			Volume: &csi.Volume{
-				VolumeId:      volFromSnapshot.ID,
-				CapacityBytes: volFromSnapshot.Size,
-				VolumeContext: req.GetParameters(),
-				ContentSource: req.GetVolumeContentSource(),
-				AccessibleTopology: []*csi.Topology{
-					Topology{ZoneID: volFromSnapshot.ZoneID}.ToCSI(),
-				},
-			},
-		}
-
-		return resp, nil
+		return cs.createVolumeFromSnapshot(ctx, req, name, snapshotID, sizeInGB)
 	}
 
 	// Determine zone using topology constraints.
@@ -285,6 +247,91 @@ func checkVolumeSuitable(vol *cloud.Volume,
 	return true, ""
 }
 
+// isSnapshotReady reports whether a CloudStack snapshot can be used to restore a
+// volume. Snapshots still being created or backed up are not ready; the
+// snapshotter then calls CreateSnapshot again until they are. An empty state
+// (not reported) is treated as ready to keep the previous behavior.
+func isSnapshotReady(state string) bool {
+	switch state {
+	case "Allocated", "Creating", "CreatedOnPrimary", "BackingUp", "Copying":
+		return false
+	default:
+		return true
+	}
+}
+
+// createVolumeFromSnapshot restores snapshotID into a new volume of at least sizeInGB.
+func (cs *controllerServer) createVolumeFromSnapshot(ctx context.Context, req *csi.CreateVolumeRequest, name, snapshotID string, sizeInGB int64) (*csi.CreateVolumeResponse, error) {
+	logger := klog.FromContext(ctx)
+	logger.Info("Creating volume from snapshot", "snapshotID", snapshotID)
+	printVolumeAsJSON(req)
+
+	snapshot, err := cs.connector.GetSnapshotByID(ctx, snapshotID)
+	if errors.Is(err, cloud.ErrNotFound) {
+		return nil, status.Errorf(codes.NotFound, "Snapshot %v not found", snapshotID)
+	} else if err != nil {
+		// Error with CloudStack
+		return nil, status.Errorf(codes.Internal, "Error %v", err)
+	}
+
+	logger.Info("PVC created with", "size", sizeInGB)
+	snapshotSizeGiB := util.RoundUpBytesToGB(snapshot.Size)
+	if snapshotSizeGiB > sizeInGB {
+		logger.Info("Snapshot size is greater than the request PVC, creating volume from snapshot of size", "snapshot size:", snapshotSizeGiB)
+		sizeInGB = snapshotSizeGiB
+	}
+
+	volFromSnapshot, err := cs.connector.CreateVolumeFromSnapshot(ctx, snapshot.ZoneID, name, snapshot.ProjectID, snapshotID, sizeInGB)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Cannot create volume from snapshot %s: %v", snapshotID, err.Error())
+	}
+
+	// CloudStack creates the volume at the snapshot's size and ignores a larger
+	// requested size, so grow it here to satisfy the PVC request.
+	if growErr := cs.growVolumeFromSnapshot(ctx, volFromSnapshot, snapshotID, sizeInGB); growErr != nil {
+		return nil, growErr
+	}
+
+	return &csi.CreateVolumeResponse{
+		Volume: &csi.Volume{
+			VolumeId:      volFromSnapshot.ID,
+			CapacityBytes: volFromSnapshot.Size,
+			VolumeContext: req.GetParameters(),
+			ContentSource: req.GetVolumeContentSource(),
+			AccessibleTopology: []*csi.Topology{
+				Topology{ZoneID: volFromSnapshot.ZoneID}.ToCSI(),
+			},
+		},
+	}, nil
+}
+
+// growVolumeFromSnapshot resizes a volume created from a snapshot when it is
+// smaller than the requested size. On failure the undersized volume is deleted
+// so the next CreateVolume retry starts clean.
+func (cs *controllerServer) growVolumeFromSnapshot(ctx context.Context, vol *cloud.Volume, snapshotID string, sizeInGB int64) error {
+	logger := klog.FromContext(ctx)
+
+	requiredBytes := util.GigaBytesToBytes(sizeInGB)
+	if vol.Size >= requiredBytes {
+		return nil
+	}
+
+	logger.Info("Volume from snapshot is smaller than requested, resizing",
+		"volumeID", vol.ID, "currentBytes", vol.Size, "requestedGB", sizeInGB)
+
+	if expandErr := cs.connector.ExpandVolume(ctx, vol.ID, sizeInGB); expandErr != nil {
+		if delErr := cs.connector.DeleteVolume(ctx, vol.ID); delErr != nil {
+			logger.Error(delErr, "Failed to delete undersized volume after resize failure", "volumeID", vol.ID)
+		}
+
+		return status.Errorf(codes.Internal, "Cannot resize volume %s created from snapshot %s to %d GB: %v",
+			vol.ID, snapshotID, sizeInGB, expandErr)
+	}
+	vol.Size = requiredBytes
+
+	return nil
+}
+
 func determineSize(req *csi.CreateVolumeRequest) (int64, error) {
 	var sizeInGB int64
 
@@ -341,11 +388,41 @@ func (cs *controllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 	)
 
 	err := cs.connector.DeleteVolume(ctx, volumeID)
-	if err != nil && !errors.Is(err, cloud.ErrNotFound) {
-		return nil, status.Errorf(codes.Internal, "Cannot delete volume %s: %s", volumeID, err.Error())
+	if err == nil || errors.Is(err, cloud.ErrNotFound) {
+		return &csi.DeleteVolumeResponse{}, nil
 	}
 
-	return &csi.DeleteVolumeResponse{}, nil
+	// CloudStack uses the same error code for "no such volume" and for refusals
+	// such as "volume is attached". Only treat the delete as done if the volume
+	// is really gone; otherwise report why, so nothing is left behind unnoticed.
+	vol, getErr := cs.connector.GetVolumeByID(ctx, volumeID)
+	switch {
+	case errors.Is(getErr, cloud.ErrNotFound):
+		return &csi.DeleteVolumeResponse{}, nil
+	case getErr != nil:
+		return nil, status.Errorf(codes.Internal, "Cannot delete volume %s: %v (checking whether it still exists failed: %v)", volumeID, err, getErr)
+	case isVolumeDestroyed(vol.State):
+		logger.Info("Volume already destroyed in CloudStack; it will be expunged by CloudStack",
+			"volumeID", volumeID, "state", vol.State)
+
+		return &csi.DeleteVolumeResponse{}, nil
+	case vol.VirtualMachineID != "":
+		return nil, status.Errorf(codes.FailedPrecondition, "Cannot delete volume %s: it is attached to VM %s: %v",
+			volumeID, vol.VirtualMachineID, err)
+	default:
+		return nil, status.Errorf(codes.Internal, "Cannot delete volume %s: %v", volumeID, err)
+	}
+}
+
+// isVolumeDestroyed reports whether a CloudStack volume has been destroyed and
+// only waits for CloudStack to expunge it.
+func isVolumeDestroyed(state string) bool {
+	switch state {
+	case "Destroy", "Expunging", "Expunged":
+		return true
+	default:
+		return false
+	}
 }
 
 func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequest) (*csi.CreateSnapshotResponse, error) {
@@ -373,11 +450,37 @@ func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 	}
 
 	klog.V(4).Infof("CreateSnapshot of volume: %s", volume.ID)
-	snapshot, err := cs.connector.CreateSnapshot(ctx, volume.ID, req.GetName())
-	if errors.Is(err, cloud.ErrAlreadyExists) {
-		return nil, status.Errorf(codes.AlreadyExists, "Snapshot name conflict: already exists for a different source volume")
-	} else if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to create snapshot for volume %s: %v", volume.ID, err.Error())
+
+	// Serialize calls for the same snapshot name. A timed-out call keeps running
+	// against CloudStack, so a retry must not race it and create a duplicate.
+	if acquired := cs.volumeLocks.TryAcquire(req.GetName()); !acquired {
+		return nil, status.Errorf(codes.Aborted, "An operation for snapshot %s is already in progress", req.GetName())
+	}
+	defer cs.volumeLocks.Release(req.GetName())
+
+	// CreateSnapshot must be idempotent (CSI spec): the snapshotter retries with
+	// the same name after timeouts, so return an existing snapshot instead of
+	// creating a duplicate in CloudStack.
+	snapshot, err := cs.connector.GetSnapshotByName(ctx, req.GetName())
+	switch {
+	case err == nil:
+		if snapshot.VolumeID != volume.ID {
+			return nil, status.Errorf(codes.AlreadyExists, "Snapshot %q already exists for a different source volume", req.GetName())
+		}
+		klog.V(4).Infof("CreateSnapshot: snapshot %s already exists for volume %s, returning it", snapshot.ID, volume.ID)
+	case errors.Is(err, cloud.ErrNotFound):
+		snapshot, err = cs.connector.CreateSnapshot(ctx, volume.ID, req.GetName())
+		if errors.Is(err, cloud.ErrAlreadyExists) {
+			return nil, status.Errorf(codes.AlreadyExists, "Snapshot name conflict: already exists for a different source volume")
+		} else if err != nil {
+			return nil, status.Errorf(codes.Internal, "Failed to create snapshot for volume %s: %v", volume.ID, err.Error())
+		}
+	default:
+		return nil, status.Errorf(codes.Internal, "Failed to look up snapshot %q: %v", req.GetName(), err)
+	}
+
+	if snapshot.State == "Error" {
+		return nil, status.Errorf(codes.Internal, "Snapshot %s of volume %s is in Error state in CloudStack", snapshot.ID, volume.ID)
 	}
 
 	t, err := time.Parse("2006-01-02T15:04:05-0700", snapshot.CreatedAt)
@@ -387,12 +490,20 @@ func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 
 	ts := timestamppb.New(t)
 
+	// Report the restore size so Kubernetes can show and enforce it.
+	// Fall back to the source volume size if CloudStack returns no virtualsize.
+	sizeBytes := snapshot.Size
+	if sizeBytes == 0 {
+		sizeBytes = volume.Size
+	}
+
 	resp := &csi.CreateSnapshotResponse{
 		Snapshot: &csi.Snapshot{
 			SnapshotId:     snapshot.ID,
 			SourceVolumeId: volume.ID,
+			SizeBytes:      sizeBytes,
 			CreationTime:   ts,
-			ReadyToUse:     true,
+			ReadyToUse:     isSnapshotReady(snapshot.State),
 		},
 	}
 
@@ -434,8 +545,9 @@ func (cs *controllerServer) ListSnapshots(ctx context.Context, req *csi.ListSnap
 			Snapshot: &csi.Snapshot{
 				SnapshotId:     snap.ID,
 				SourceVolumeId: snap.VolumeID,
+				SizeBytes:      snap.Size,
 				CreationTime:   ts,
-				ReadyToUse:     true,
+				ReadyToUse:     isSnapshotReady(snap.State),
 			},
 		}
 		entries = append(entries, entry)
@@ -454,14 +566,24 @@ func (cs *controllerServer) DeleteSnapshot(ctx context.Context, req *csi.DeleteS
 	klog.V(4).Infof("DeleteSnapshot for snapshotID: %s", snapshotID)
 
 	err := cs.connector.DeleteSnapshot(ctx, snapshotID)
-	if errors.Is(err, cloud.ErrNotFound) {
+	if err == nil || errors.Is(err, cloud.ErrNotFound) {
 		// Per CSI spec, return OK if snapshot does not exist
 		return &csi.DeleteSnapshotResponse{}, nil
-	} else if err != nil {
-		return nil, status.Errorf(codes.Internal, "Error %v", err)
 	}
 
-	return &csi.DeleteSnapshotResponse{}, nil
+	// CloudStack reports an already deleted snapshot with several different
+	// messages. Treat the delete as done only if the snapshot is really gone.
+	snap, getErr := cs.connector.GetSnapshotByID(ctx, snapshotID)
+	switch {
+	case errors.Is(getErr, cloud.ErrNotFound):
+		return &csi.DeleteSnapshotResponse{}, nil
+	case getErr != nil:
+		return nil, status.Errorf(codes.Internal, "Cannot delete snapshot %s: %v (checking whether it still exists failed: %v)", snapshotID, err, getErr)
+	case snap.State == "Destroyed":
+		return &csi.DeleteSnapshotResponse{}, nil
+	default:
+		return nil, status.Errorf(codes.Internal, "Cannot delete snapshot %s (state %s): %v", snapshotID, snap.State, err)
+	}
 }
 
 func (cs *controllerServer) ControllerPublishVolume(ctx context.Context, req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {

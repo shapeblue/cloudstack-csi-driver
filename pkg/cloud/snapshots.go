@@ -21,7 +21,6 @@ package cloud
 
 import (
 	"context"
-	"strings"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -46,10 +45,13 @@ func (c *client) GetSnapshotByID(ctx context.Context, snapshotID string) (*Snaps
 	return &Snapshot{
 		ID:        snapshot.Id,
 		Name:      snapshot.Name,
+		State:     snapshot.State,
+		Size:      snapshot.Virtualsize,
 		DomainID:  snapshot.Domainid,
 		ProjectID: snapshot.Projectid,
 		ZoneID:    snapshot.Zoneid,
 		VolumeID:  snapshot.Volumeid,
+		CreatedAt: snapshot.Created,
 	}, nil
 }
 
@@ -70,6 +72,7 @@ func (c *client) CreateSnapshot(ctx context.Context, volumeID, name string) (*Sn
 	return &Snapshot{
 		ID:        snapshot.Id,
 		Name:      snapshot.Name,
+		State:     snapshot.State,
 		Size:      snapshot.Virtualsize,
 		DomainID:  snapshot.Domainid,
 		ProjectID: snapshot.Projectid,
@@ -82,11 +85,10 @@ func (c *client) CreateSnapshot(ctx context.Context, volumeID, name string) (*Sn
 func (c *client) DeleteSnapshot(_ context.Context, snapshotID string) error {
 	p := c.Snapshot.NewDeleteSnapshotParams(snapshotID)
 	_, err := c.Snapshot.DeleteSnapshot(p)
-	if err != nil && strings.Contains(err.Error(), "4350") {
-		// CloudStack error InvalidParameterValueException
-		return ErrNotFound
-	}
 
+	// Errors are returned as they are. CloudStack reports an already deleted
+	// snapshot with several different messages, so the caller checks whether
+	// the snapshot still exists instead of matching error text.
 	return err
 }
 
@@ -107,6 +109,8 @@ func (c *client) GetSnapshotByName(ctx context.Context, name string) (*Snapshot,
 	return &Snapshot{
 		ID:        snapshot.Id,
 		Name:      snapshot.Name,
+		State:     snapshot.State,
+		Size:      snapshot.Virtualsize,
 		DomainID:  snapshot.Domainid,
 		ProjectID: snapshot.Projectid,
 		ZoneID:    snapshot.Zoneid,
@@ -148,6 +152,7 @@ func (c *client) ListSnapshots(ctx context.Context, volumeID, snapshotID string)
 		s := &Snapshot{
 			ID:        snapshot.Id,
 			Name:      snapshot.Name,
+			State:     snapshot.State,
 			Size:      snapshot.Virtualsize,
 			DomainID:  snapshot.Domainid,
 			ProjectID: snapshot.Projectid,
