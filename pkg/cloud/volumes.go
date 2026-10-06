@@ -23,7 +23,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/apache/cloudstack-go/v2/cloudstack"
 	"k8s.io/klog/v2"
@@ -42,6 +41,7 @@ func mapVolume(vol *cloudstack.Volume) *Volume {
 		ZoneID:           vol.Zoneid,
 		VirtualMachineID: vol.Virtualmachineid,
 		DeviceID:         strconv.FormatInt(vol.Deviceid, 10),
+		State:            vol.State,
 	}
 }
 
@@ -113,11 +113,11 @@ func (c *client) DeleteVolume(ctx context.Context, id string) error {
 		"id": id,
 	})
 	_, err := c.Volume.DeleteVolume(p)
-	if err != nil && strings.Contains(err.Error(), "4350") {
-		// CloudStack error InvalidParameterValueException
-		return ErrNotFound
-	}
 
+	// Errors are returned as they are. CloudStack uses the same error code for
+	// "no such volume" and for refusals such as "volume is attached", so the
+	// caller checks whether the volume still exists before treating a failed
+	// delete as done.
 	return err
 }
 

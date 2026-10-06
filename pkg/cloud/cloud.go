@@ -46,6 +46,10 @@ type Interface interface {
 	DetachVolume(ctx context.Context, volumeID string) error
 	ExpandVolume(ctx context.Context, volumeID string, newSizeInGB int64) error
 
+	// GetMaxCustomDiskSizeGB returns CloudStack's maximum size for volumes with
+	// a custom disk offering (0 if CloudStack reports no limit).
+	GetMaxCustomDiskSizeGB(ctx context.Context) (int64, error)
+
 	CreateVolumeFromSnapshot(ctx context.Context, zoneID, name, projectID, snapshotID string, sizeInGB int64) (*Volume, error)
 	GetSnapshotByID(ctx context.Context, snapshotID string) (*Snapshot, error)
 	GetSnapshotByName(ctx context.Context, name string) (*Snapshot, error)
@@ -69,6 +73,9 @@ type Volume struct {
 
 	VirtualMachineID string
 	DeviceID         string
+
+	// State is the CloudStack volume state, e.g. Allocated, Ready, Destroy.
+	State string
 }
 
 // Snapshot represents a CloudStack snapshot.
@@ -83,6 +90,9 @@ type Snapshot struct {
 
 	VolumeID  string
 	CreatedAt string
+
+	// State is the CloudStack snapshot state, e.g. Creating, BackingUp, BackedUp.
+	State string
 }
 
 // VM represents a CloudStack Virtual Machine.

@@ -158,6 +158,10 @@ func (f *fakeConnector) ExpandVolume(_ context.Context, volumeID string, newSize
 	return cloud.ErrNotFound
 }
 
+func (f *fakeConnector) GetMaxCustomDiskSizeGB(_ context.Context) (int64, error) {
+	return 0, nil
+}
+
 func (f *fakeConnector) CreateVolumeFromSnapshot(_ context.Context, zoneID, name, _, _ string, sizeInGB int64) (*cloud.Volume, error) {
 	vol := &cloud.Volume{
 		ID:             "fake-vol-from-snap-" + name,
